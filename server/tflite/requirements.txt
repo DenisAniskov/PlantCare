@@ -1,0 +1,7 @@
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.29,<1.0
+Pillow>=10.2,<11.0
+numpy>=1.25,<2.0
+# Prefer lightweight TFLite runtime if available; on Windows fallback to TensorFlow CPU
+tflite-runtime; platform_system != 'Windows'
+tensorflow-cpu>=2.13,<2.16; platform_system == 'Windows'

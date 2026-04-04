@@ -1,0 +1,86 @@
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.jetbrains.compose)
+    alias(libs.plugins.kotlin.compose)
+}
+
+repositories {
+    google()
+    mavenCentral()
+    maven { url 'https://maven.pkg.jetbrains.space/public/p/compose/dev' }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
+    implementation project(":core")
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'org.json:json:20240303'
+    implementation project(":shared-ui")
+    // for IconGenerator (build-time only, but harmless at runtime)
+    implementation 'com.twelvemonkeys.imageio:imageio-webp:3.10.1'
+    implementation 'com.twelvemonkeys.imageio:imageio-core:3.10.1'
+    implementation 'org.apache.commons:commons-imaging:1.0-alpha3'
+}
+
+// Dependencies used only for icon generation (webp -> png -> ico)
+configurations {
+    iconGen
+}
+
+dependencies {
+    iconGen 'com.twelvemonkeys.imageio:imageio-webp:3.10.1'
+    iconGen 'com.twelvemonkeys.imageio:imageio-core:3.10.1'
+    iconGen 'org.apache.commons:commons-imaging:1.0-alpha3'
+}
+
+tasks.register('generateWindowsIcon', JavaExec) {
+    group = 'build'
+    description = 'Generate desktop Windows icon.ico from Android mipmap webp (uses IconGenerator)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.plantcare.desktop.IconGenerator'
+    workingDir = rootProject.projectDir
+    ignoreExitValue = true
+}
+
+compose.desktop {
+    application {
+        mainClass = 'com.example.plantcare.desktop.MainKt'
+        buildTypes {
+            release {
+                proguard {
+                    // Use custom ProGuard config to suppress Android/JSSE platform-specific warnings
+                    configurationFiles.from(project.file("proguard-desktop.pro"))
+                }
+            }
+        }
+        nativeDistributions {
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe, org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi)
+            packageName = "PlantCare"
+            packageVersion = "0.1.0"
+            // Improve compatibility on problematic GPUs/drivers
+            jvmArgs.add('-Dskiko.renderApi=SOFTWARE')
+            windows {
+                def ico = file("src/main/resources/icon.ico")
+                if (ico.exists()) {
+                    iconFile.set(ico)
+                }
+            }
+        }
+    }
+}
+
+// Ensure icon is generated before packaging tasks
+tasks.matching { it.name.toLowerCase().contains('package') && it.name.toLowerCase().contains('exe') }.configureEach {
+    dependsOn(generateWindowsIcon)
+}
+tasks.matching { it.name.toLowerCase().contains('package') && it.name.toLowerCase().contains('msi') }.configureEach {
+    dependsOn(generateWindowsIcon)
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "plant": "Яблони",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "суперфосфат"],
+    "care_tip": "Регулярно обрезайте сухие ветви и мульчируйте приствольный круг."
+  },
+  {
+    "plant": "Яблоня Колоновидная",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Уделяйте внимание поливу и защите от вредителей."
+  },
+  {
+    "plant": "Груши",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "суперфосфат", "калийная соль"],
+    "care_tip": "Обрезайте ветви для формирования кроны и удаления сухих частей."
+  },
+  {
+    "plant": "Вишня",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "доломитовая мука"],
+    "care_tip": "Регулярно рыхлите почву и удаляйте сорняки."
+  }
+]

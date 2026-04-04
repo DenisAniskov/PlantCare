@@ -1,0 +1,40 @@
+### IntelliJ / Android Studio
+*.iml
+/.idea/
+**/.idea/
+
+### Gradle / Kotlin
+.gradle/
+**/.gradle/
+.kotlin/
+**/.kotlin/
+**/build/
+**/out/
+
+### Android
+/local.properties
+local.properties
+**/captures/
+.externalNativeBuild/
+**/.externalNativeBuild/
+.cxx/
+**/.cxx/
+
+### Compose Desktop / packaging outputs
+desktop/bin/
+**/*.exe
+**/*.msi
+**/*.dmg
+**/*.pkg
+
+### OS junk
+.DS_Store
+Thumbs.db
+
+### Python (server/tflite)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+**/.venv/

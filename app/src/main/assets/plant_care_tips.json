@@ -1,0 +1,569 @@
+[
+  {
+    "plant": "Яблони",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "суперфосфат"],
+    "care_tip": "Регулярно обрезайте сухие ветви и мульчируйте приствольный круг."
+  },
+  {
+    "plant": "Яблоня Колоновидная",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Уделяйте внимание поливу и защите от вредителей."
+  },
+  {
+    "plant": "Груши",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "суперфосфат", "калийная соль"],
+    "care_tip": "Обрезайте ветви для формирования кроны и удаления сухих частей."
+  },
+  {
+    "plant": "Вишня",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "доломитовая мука"],
+    "care_tip": "Регулярно рыхлите почву и удаляйте сорняки."
+  },
+  {
+    "plant": "Вишня войлочная",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "суперфосфат", "калийные удобрения"],
+    "care_tip": "Обеспечьте хороший дренаж и защиту от ветра."
+  },
+  {
+    "plant": "Черешни",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "калийная соль"],
+    "care_tip": "Поливайте обильно в период плодоношения."
+  },
+  {
+    "plant": "Слива",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "суперфосфат", "доломитовая мука"],
+    "care_tip": "Регулярно обрезайте для формирования кроны."
+  },
+  {
+    "plant": "Ирга",
+    "watering_interval_days": 10,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Не требует особого ухода, устойчива к засухе."
+  },
+  {
+    "plant": "Смородина красная, чёрная, белая",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "суперфосфат", "зола"],
+    "care_tip": "Регулярно обрезайте старые ветви для лучшего урожая."
+  },
+  {
+    "plant": "Клубника",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 365,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Мульчируйте почву для сохранения влаги."
+  },
+  {
+    "plant": "Клубника ремонтантная",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 15,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 365,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Удаляйте усы для увеличения урожая."
+  },
+  {
+    "plant": "Малина",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Подвязывайте кусты для удобства сбора урожая."
+  },
+  {
+    "plant": "Малиновое дерево",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "суперфосфат", "калийные удобрения"],
+    "care_tip": "Обрезайте для формирования дерева."
+  },
+  {
+    "plant": "Малина ремонтантная",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Осенью обрезайте под корень для лучшего роста."
+  },
+  {
+    "plant": "Черника",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["торф", "сульфат аммония", "компост"],
+    "care_tip": "Поддерживайте кислую почву."
+  },
+  {
+    "plant": "Голубика",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["торф", "сульфат аммония", "компост"],
+    "care_tip": "Требует кислой почвы и регулярного полива."
+  },
+  {
+    "plant": "Виноград",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Подвязывайте лозы и обрезайте лишние побеги."
+  },
+  {
+    "plant": "Ежевика",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Подвязывайте побеги для удобства ухода."
+  },
+  {
+    "plant": "Актинидия (киви)",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Обеспечьте опору для лиан."
+  },
+  {
+    "plant": "Огурец",
+    "watering_interval_days": 2,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Поливайте под корень, избегая попадания воды на листья."
+  },
+  {
+    "plant": "Томат",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["компост", "азофоска", "суперфосфат"],
+    "care_tip": "Пасынкуйте для увеличения урожая."
+  },
+  {
+    "plant": "Кабачки",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Регулярно собирайте плоды для стимуляции роста."
+  },
+  {
+    "plant": "Тыква",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 120,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Обеспечьте много пространства для роста."
+  },
+  {
+    "plant": "Розы",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 730,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Регулярно удаляйте увядшие цветы."
+  },
+  {
+    "plant": "Гортензии",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "сульфат аммония", "торф"],
+    "care_tip": "Поддерживайте кислую почву для ярких цветов."
+  },
+  {
+    "plant": "Метельчатые гортензии",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "сульфат аммония", "торф"],
+    "care_tip": "Обрезайте весной для пышного цветения."
+  },
+  {
+    "plant": "Пионы",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "суперфосфат", "зола"],
+    "care_tip": "Не заглубляйте корневую шейку при посадке."
+  },
+  {
+    "plant": "Посконник",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчив к засухе, не требует частого полива."
+  },
+  {
+    "plant": "Лилии",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Сажайте луковицы на глубину, равную трём их диаметрам."
+  },
+  {
+    "plant": "Рододендрон",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["торф", "сульфат аммония", "компост"],
+    "care_tip": "Требует кислой почвы и защиты от ветра."
+  },
+  {
+    "plant": "Астильба",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Любит полутень и влажную почву."
+  },
+  {
+    "plant": "Клематис",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "калийные удобрения"],
+    "care_tip": "Обеспечьте опору и защиту корней от перегрева."
+  },
+  {
+    "plant": "Петуния",
+    "watering_interval_days": 2,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 180,
+    "recommended_fertilizers": ["азофоска", "гумат", "компост"],
+    "care_tip": "Регулярно удаляйте увядшие цветы для продления цветения."
+  },
+  {
+    "plant": "Анютины глазки",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 180,
+    "recommended_fertilizers": ["азофоска", "гумат", "компост"],
+    "care_tip": "Предпочитают прохладную погоду и полутень."
+  },
+  {
+    "plant": "Хоста",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Любит тень и влажную почву."
+  },
+  {
+    "plant": "Лук",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["азофоска", "зола", "компост"],
+    "care_tip": "Регулярно рыхлите почву для лучшего роста."
+  },
+  {
+    "plant": "Укроп",
+    "watering_interval_days": 2,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 60,
+    "recommended_fertilizers": ["азофоска", "компост"],
+    "care_tip": "Сеять можно несколько раз за сезон."
+  },
+  {
+    "plant": "Горох",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["азофоска", "компост", "зола"],
+    "care_tip": "Обеспечьте опору для вьющихся стеблей."
+  },
+  {
+    "plant": "Петрушка",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 20,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 90,
+    "recommended_fertilizers": ["азофоска", "компост"],
+    "care_tip": "Регулярно прореживайте всходы."
+  },
+  {
+    "plant": "Салат",
+    "watering_interval_days": 2,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 60,
+    "recommended_fertilizers": ["азофоска", "гумат", "компост"],
+    "care_tip": "Поливайте утром или вечером."
+  },
+  {
+    "plant": "Базилик",
+    "watering_interval_days": 2,
+    "fertilizing_interval_days": 14,
+    "spraying_interval_days": 7,
+    "repotting_interval_days": 60,
+    "recommended_fertilizers": ["азофоска", "гумат", "компост"],
+    "care_tip": "Прищипывайте верхушки для кустистости."
+  },
+  {
+    "plant": "Мята",
+    "watering_interval_days": 3,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 365,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Контролируйте распространение корней."
+  },
+  {
+    "plant": "Черёмуха красная",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к болезням, требует минимального ухода."
+  },
+  {
+    "plant": "Орешник",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Обрезайте для формирования куста."
+  },
+  {
+    "plant": "Бересклет",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Хорошо переносит обрезку."
+  },
+  {
+    "plant": "Чёрная рябина",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к болезням и вредителям."
+  },
+  {
+    "plant": "Акация",
+    "watering_interval_days": 10,
+    "fertilizing_interval_days": 90,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Засухоустойчива, не требует частого полива."
+  },
+  {
+    "plant": "Жасмин",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "гумат"],
+    "care_tip": "Обрезайте после цветения для пышного роста."
+  },
+  {
+    "plant": "Жимолость",
+    "watering_interval_days": 5,
+    "fertilizing_interval_days": 30,
+    "spraying_interval_days": 14,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Устойчива к морозам, требует минимального ухода."
+  },
+  {
+    "plant": "Барбарис",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Хорошо переносит стрижку и формирование."
+  },
+  {
+    "plant": "Снежеягодник",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчив к болезням и засухе."
+  },
+  {
+    "plant": "Спирея",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Обрезайте после цветения для поддержания формы."
+  },
+  {
+    "plant": "Сирень",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска", "зола"],
+    "care_tip": "Удаляйте отцветшие метёлки для лучшего роста."
+  },
+  {
+    "plant": "Пузыреплодник",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1095,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Хорошо переносит обрезку и формирование."
+  },
+  {
+    "plant": "Сосна",
+    "watering_interval_days": 14,
+    "fertilizing_interval_days": 365,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к засухе, не требует частого полива."
+  },
+  {
+    "plant": "Ель Сербская",
+    "watering_interval_days": 14,
+    "fertilizing_interval_days": 365,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Хорошо переносит морозы и ветер."
+  },
+  {
+    "plant": "Ель",
+    "watering_interval_days": 14,
+    "fertilizing_interval_days": 365,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к морозам, не требует частого ухода."
+  },
+  {
+    "plant": "Туи",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 180,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Регулярно поливайте в засуху."
+  },
+  {
+    "plant": "Берёза",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 365,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к морозам, требует минимального ухода."
+  },
+  {
+    "plant": "Дуб",
+    "watering_interval_days": 14,
+    "fertilizing_interval_days": 365,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Растёт медленно, устойчив к болезням."
+  },
+  {
+    "plant": "Клён",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 180,
+    "spraying_interval_days": 60,
+    "repotting_interval_days": 3650,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Обрезайте сухие ветви для формирования кроны."
+  },
+  {
+    "plant": "Калина",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к морозам, требует минимального ухода."
+  },
+  {
+    "plant": "Рябина",
+    "watering_interval_days": 7,
+    "fertilizing_interval_days": 60,
+    "spraying_interval_days": 30,
+    "repotting_interval_days": 1825,
+    "recommended_fertilizers": ["компост", "азофоска"],
+    "care_tip": "Устойчива к болезням и вредителям."
+  }
+]

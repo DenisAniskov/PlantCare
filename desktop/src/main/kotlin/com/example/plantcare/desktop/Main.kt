@@ -72,10 +72,12 @@ private data class DesktopNote(
 
 private enum class Screen { HOME, PLANTS, ONLINE_MODEL, PLANT_DETAIL, REFERENCE, WEATHER, NOTES, LOCAL_MODEL, DIAGNOSIS, ABOUT }
 
-private const val PERENUAL_API_KEY = "YOUR_PERENUAL_API_KEY_HERE"
+private const val PERENUAL_API_KEY = "sk-x4vY69ced5ea74a8516032"
 private val API_KEYS = listOf(
-    "YOUR_OPENROUTER_API_KEY_1_HERE",
-    "YOUR_OPENROUTER_API_KEY_2_HERE"
+    "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",
+    "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",
+    "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",
+    "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"
 )
 
 private data class Stage(val textModel: String, val visionModel: String, val name: String)

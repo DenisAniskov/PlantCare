@@ -2,7 +2,7 @@
 
 Кроссплатформенное приложение для ухода за растениями (Android + Windows) с AI-ассистентом, диагностикой болезней и расширенным справочником.
 
-**Версия:** 1.1  
+**Версия:** 1.2  
 **Автор:** Денис Аниськов  
 **Статус:** Production Ready
 
@@ -10,26 +10,39 @@
 
 ## Возможности
 
-### 🤖 AI-ассистент
-- **Groq API** (Llama 3.1/3.2) — основной, быстрый, бесплатный
-- **Google Gemini** — fallback, поддержка vision
+### 🤖 AI-ассистент с каскадным failover
+- **NVIDIA Nemotron** — основная модель (бесплатная)
+- **MiniMax** —vision поддержка
+- **GLM 4.5 Air** — альтернатива
+- **OpenRouter Free** — резерв
 - **Локальная RAG-база** — полностью оффлайн
 - Автоматическое переключение при недоступности сервиса
 
+### 🖼️ Эталонные изображения
+- **Wikimedia Commons** — автоматическая загрузка эталонных фото
+- Интеграция с Wikipedia для справки
+- Извлечение KEYWORDS из ответов ИИ
+
+### 💬 Chat Sessions
+- История чатов с сохранением в БД
+- Переименование чатов
+- Новый чат / История кнопки
+
 ### 📸 ИИ-анализатор растений
-- Распознавание по фото через Groq Vision / Gemini
+- Распознавание по фото через AI cascade
 - Определение вида, оценка здоровья, выявление проблем
 - Персональные рекомендации по уходу
+- TFLite fallback when AI fails
 
 ### 🏥 Диагностика болезней
-- 13 симптомов для выбора
-- Локальная база заболеваний + AI-диагностика
+- AI-диагностика + локальная база (LocalRagEngine)
+- Симптомы: место проявления, описание, растение
 - Рекомендации по лечению и профилактике
 
 ### 📚 Расширенный справочник
 - Локальная база растений с описаниями
 - **Perenual API** — 300 000+ растений с данными по уходу
-- **Pixabay API** — фотографии растений
+- **Wikimedia** — фотографии растений
 - Справочник болезней и вредителей
 - Работает оффлайн (fallback на локальную базу)
 
@@ -55,20 +68,24 @@
 ### 📱 Современный UI/UX
 - Сетка 2×4 на главном экране
 - Плавные анимации (fade-in, slide-in, scale-in)
+- FilledTonalButton для фото (лучшая видимость)
+- Proxy Indicator статус
 - Крупные кнопки для доступности
 - Высокий контраст для слабовидящих
 
 ---
 
-## Архитектура AI
+## Архитектура AI (Cascade)
 
 ```
-Запрос → Groq API → Gemini AI → LocalRagEngine
-            ↓           ↓            ↓
-       (текст)    (текст+vision)  (оффлайн)
+Запрос → NVIDIA Nemotron → MiniMax → GLM → OpenRouter Free → LocalRagEngine
+        ↓              ↓         ↓         ↓              ↓
+     (vision)      (vision)   (vision)    (оффлайн)
 ```
 
-Для изображений: Groq Vision → Gemini Vision → Local RAG
+Для изображений: 4-модельный каскад с автоматическим выбором vision-модели
+
+Status callback: реальное отображение статуса модели на всех экранах (Chat, Neural, Diagnosis)
 
 ---
 
@@ -80,8 +97,8 @@
 | **Desktop** | Kotlin, Compose for Desktop, Java 17 |
 | **Core** | Kotlin Multiplatform, LocalRagEngine |
 | **Shared-UI** | KMP Compose, дизайн-система |
-| **AI** | Groq API, Google Gemini, Local RAG |
-| **API** | Perenual, Pixabay, Open-Meteo |
+| **AI** | OpenRouter (NVIDIA, MiniMax, GLM), Local RAG, TFLite |
+| **API** | Perenual, Wikimedia Commons, Open-Meteo |
 
 ---
 
@@ -90,15 +107,15 @@
 ```
 PlantCare/
 ├── app/                    # Android-приложение
-│   ├── data/               # Room entities
-│   ├── db/                 # Database, DAO, Converters
+│   ├── data/               # Room entities (Plant, CareEvent, Note, ChatSession, ChatMessageEntity)
+│   ├── db/                 # Database, DAO (PlantDao, CareEventDao, ChatDao)
 │   ├── viewmodel/          # PlantCareViewModel
-│   ├── ui/                 # Compose-экраны
-│   ├── ai/                 # AI-клиенты (Groq, Gemini, Fallback)
-│   └── util/               # Utilities (API, Prefs)
+│   ├── ui/                 # Compose-экраны (HomeScreen, ChatGPTAssistantScreen, NeuralScreen, SymptomDiagnosisScreen, ReferenceScreen, WeatherScreen)
+│   ├── ai/                 # AI-клиенты (CascadeAiClient, AiClient, AiClientProvider)
+│   └── util/               # Utilities (Prefs, PerenualApi, WikipediaApi, PixabayApi, ProxyStatusMonitor)
 ├── desktop/                # Desktop-версия (Compose for Desktop)
 ├── core/                   # KMP — LocalRagEngine
-├── shared-ui/              # KMP — дизайн-система, компоненты
+├── shared-ui/              # KMP — дизайн-система, SharedChatAssistantScreen
 └── server/                 # TFLite сервер (опционально)
 ```
 
@@ -140,22 +157,34 @@ PlantCare/
 
 | API | Назначение | Бесплатно |
 |---|---|---|
-| **Groq API** | AI-ассистент, анализ фото | ✅ Да |
-| **Google Gemini** | AI fallback, vision | ✅ Да |
+| **OpenRouter** | AI cascade (NVIDIA, MiniMax, GLM) | ✅ Да |
 | **Perenual API** | Справочник растений (300K+) | ✅ Да |
-| **Pixabay API** | Фотографии растений | ✅ Да |
+| **Wikimedia Commons** | Эталонные изображения | ✅ Да |
 | **Open-Meteo** | Прогноз погоды | ✅ Да |
 
 Все API бесплатные, без обязательной регистрации.
 
 ---
 
-## Примечания
+## Сравнение версий
 
+| Версия | AI | Images | Chat | Status |
+|--------|-------|--------|------|--------|
+| **1.1** | Groq → Gemini | Pixabay | ❌ | ❌ |
+| **1.2** | 4-stage Cascade | Wikimedia | ✅ Sessions | ✅ |
+
+---
+
+##Примечания
+
+- AI cascade с 4 бесплатными моделями
+- Автоматические эталонные изображения через Wikimedia
+- История чатов с переименованием
+- Status отображение на всех AI-экранах
+- TFLite fallback для NeuralScreen
 - Приложение работает полностью оффлайн (AI fallback на локальную базу)
 - Все данные хранятся только на устройстве
 - Язык интерфейса — русский
-- Все API-ключи встроены в код (для демо)
 
 ---
 

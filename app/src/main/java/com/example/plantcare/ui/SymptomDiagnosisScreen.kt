@@ -21,6 +21,10 @@ import com.example.plantcare.util.DiseaseJsonImporter
 import com.example.plantcare.ui.components.ProxyIndicator
 import com.example.plantcare.ui.components.ProxyStatusBottomSheet
 import com.example.plantcare.sharedui.AssistantMessageContent
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.widget.Toast
+import androidx.compose.ui.text.font.FontStyle
 import java.io.BufferedReader
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,35 +84,39 @@ fun SymptomDiagnosisScreen(onBack: () -> Unit) {
         usedAiFallback = false
         statusMessage = null
 
-        val localQuery = listOf(
-            placeByUser.trim().takeIf { it.isNotBlank() }?.let { "место: $it" },
-            whatHappens.trim().takeIf { it.isNotBlank() }?.let { "симптомы: $it" },
-            plantName.trim().takeIf { it.isNotBlank() }?.let { "растение: $it" }
-        ).filterNotNull().joinToString(" ")
-        localResults = engine.searchDiseases(localQuery, limit = 5)
-
-        if (localResults.isEmpty()) {
-            val prompt = buildString {
-                append("Ты — эксперт по болезням растений. Проанализируй симптомы и определи возможное заболевание.\n\n")
-                if (plantName.isNotBlank()) append("Растение: $plantName\n")
-                if (placeByUser.isNotBlank()) append("Место проявления: $placeByUser\n")
-                if (whatHappens.isNotBlank()) append("Симптомы: $whatHappens\n")
-                append("\nОтветь на русском языке в формате:\n")
-                append("**Болезнь:** название\n")
-                append("**Описание:** краткое описание\n")
-                append("**Симптомы:** перечисление\n")
-                append("**Лечение:** пошаговые рекомендации\n")
-                append("**Профилактика:** меры профилактики")
-            }
-            val result = aiClient.sendMessage(
-                history = emptyList(),
-                userText = prompt,
-                imageBase64 = null,
-                systemPrompt = "Ты — ассистент по диагностике болезней растений. Отвечай точно и по делу на русском. Если диагностируешь болезнь — добавь в самом конце, отдельной строкой: KEYWORDS: название болезни на английском"
-            )
-            aiDiagnosis = result.getOrNull()
-            usedAiFallback = true
+        // 1. Сначала ВСЕГДА пробуем ИИ
+        val prompt = buildString {
+            append("Ты — эксперт по болезням растений. Проанализируй симптомы и определи возможное заболевание.\n\n")
+            if (plantName.isNotBlank()) append("Растение: $plantName\n")
+            if (placeByUser.isNotBlank()) append("Место проявления: $placeByUser\n")
+            if (whatHappens.isNotBlank()) append("Симптомы: $whatHappens\n")
+            append("\nОтветь СТРОГО на русском языке в формате:\n")
+            append("**Болезнь:** название\n")
+            append("**Описание:** краткое описание\n")
+            append("**Симптомы:** перечисление\n")
+            append("**Лечение:** пошаговые рекомендации\n")
+            append("**Профилактика:** меры профилактики")
         }
+
+        val aiResult = aiClient.sendMessage(
+            history = emptyList(),
+            userText = prompt,
+            imageBase64 = null,
+            systemPrompt = "Ты — ассистент по диагностике болезней растений. Отвечай точно и по делу на русском. Если диагностируешь болезнь — добавь в самом конце, отдельной строкой: KEYWORDS: название болезни на английском"
+        )
+
+        val resultText = aiResult.getOrNull()
+        if (!resultText.isNullOrBlank()) {
+            aiDiagnosis = resultText
+            // Если ИИ ответил, локальный поиск делаем только как дополнение "Похожее"
+            val localQuery = plantName.ifBlank { whatHappens }.ifBlank { placeByUser }
+            localResults = engine.searchDiseases(localQuery, limit = 2)
+        } else {
+            // Если ИИ не ответил (ошибка/нет сети), тогда полагаемся на локальный поиск
+            val localQuery = "$plantName $whatHappens $placeByUser".trim()
+            localResults = engine.searchDiseases(localQuery, limit = 5)
+        }
+
         loading = false
     }
 
@@ -194,19 +202,25 @@ fun SymptomDiagnosisScreen(onBack: () -> Unit) {
                 Text("Результаты диагностики", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    localResults.forEach { snippet ->
-                        val disease = findDiseaseByTitle(snippet.title)
-                        if (disease != null) {
-                            DiseaseResultCard(disease)
-                        } else {
-                            SnippetResultCard(snippet)
-                        }
-                    }
                     aiDiagnosis?.let { text ->
                         AiDiagnosisCard(text)
                     }
+                    if (localResults.isNotEmpty()) {
+                        if (aiDiagnosis != null) {
+                            Text("Похожее из справочника:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                        localResults.forEach { snippet ->
+                            val disease = findDiseaseByTitle(snippet.title)
+                            if (disease != null) {
+                                DiseaseResultCard(disease)
+                            } else {
+                                SnippetResultCard(snippet)
+                            }
+                        }
+                    }
                 }
-            } else if (analyzeCounter > 0 && !loading) {
+            }
+ else if (analyzeCounter > 0 && !loading) {
                 val hasInput = placeByUser.isNotBlank() || whatHappens.isNotBlank() || plantName.isNotBlank()
                 if (hasInput) {
                     Text("По введённым симптомам совпадений не найдено. Уточните место, описание или название растения.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
@@ -220,10 +234,32 @@ fun SymptomDiagnosisScreen(onBack: () -> Unit) {
 
 @Composable
 private fun DiseaseResultCard(d: Disease) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
     Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp), shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(16.dp)) {
-            Text("Болезнь / причина", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            Text(d.name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Болезнь / причина", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(d.name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = {
+                    val textToCopy = buildString {
+                        appendLine("Болезнь: ${d.name}")
+                        if (d.affected_plants.isNotEmpty()) appendLine("Поражает: ${d.affected_plants.joinToString(", ")}")
+                        appendLine("\nСимптомы:")
+                        d.symptoms.forEach { appendLine("• $it") }
+                        appendLine("\nЛечение:")
+                        d.treatment.forEachIndexed { i, s -> appendLine("${i + 1}. $s") }
+                        appendLine("\nПрофилактика:\n${d.prevention}")
+                    }
+                    clipboardManager.setText(AnnotatedString(textToCopy))
+                    Toast.makeText(context, "Результат скопирован", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", modifier = Modifier.size(20.dp))
+                }
+            }
             if (d.affected_plants.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
                 Text("Поражает: ${d.affected_plants.joinToString(", ")}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -243,12 +279,21 @@ private fun DiseaseResultCard(d: Disease) {
 
 @Composable
 private fun AiDiagnosisCard(text: String) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
     Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp), shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
-                Text("AI-диагностика", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                Text("AI-диагностика", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                IconButton(onClick = {
+                    clipboardManager.setText(AnnotatedString(text))
+                    Toast.makeText(context, "Вывод ИИ скопирован", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", modifier = Modifier.size(20.dp))
+                }
             }
             Spacer(Modifier.height(10.dp))
             AssistantMessageContent(
@@ -261,10 +306,24 @@ private fun AiDiagnosisCard(text: String) {
 
 @Composable
 private fun SnippetResultCard(snippet: LocalRagEngine.Snippet) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+
     Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), shape = MaterialTheme.shapes.medium) {
         Column(Modifier.padding(16.dp)) {
-            Text("Вероятная причина / совпадение", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-            Text(snippet.title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Вероятная причина / совпадение", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(snippet.title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = {
+                    val textToCopy = "${snippet.title}\n\n${snippet.text}"
+                    clipboardManager.setText(AnnotatedString(textToCopy))
+                    Toast.makeText(context, "Текст скопирован", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = "Копировать", modifier = Modifier.size(20.dp))
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(snippet.text, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
         }

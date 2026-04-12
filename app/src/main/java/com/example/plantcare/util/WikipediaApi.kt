@@ -9,7 +9,7 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
- * Wikipedia (рус.): поиск статей, заголовок, текст.
+ * Wikipedia search and summary API.
  */
 data class WikipediaSummary(
     val title: String,
@@ -18,7 +18,6 @@ data class WikipediaSummary(
 )
 
 object WikipediaApi {
-    private const val BASE = "https://ru.wikipedia.org"
     private const val USER_AGENT = "PlantCare/1.0 (Android; plants reference)"
 
     private val client = OkHttpClient.Builder()
@@ -33,20 +32,35 @@ object WikipediaApi {
         }
         .build()
 
+    private fun getBase(lang: String) = "https://$lang.wikipedia.org"
+
     suspend fun searchAndSummary(query: String): Result<WikipediaSummary> = withContext(Dispatchers.IO) {
         val q = query.trim()
-        if (q.isBlank()) return@withContext Result.failure(Exception("Пустой запрос"))
-        try {
-            val title = searchTitle(q) ?: return@withContext Result.failure(Exception("Ничего не найдено"))
-            fetchSummary(title)
-        } catch (e: Exception) {
-            Result.failure(e)
+        if (q.isBlank()) return@withContext Result.failure(Exception("Empty query"))
+        
+        // Decide language: if mostly ASCII, try English first, then Russian. Otherwise vice-versa.
+        val isEnglish = q.all { it.code < 128 }
+        val langs = if (isEnglish) listOf("en", "ru") else listOf("ru", "en")
+        
+        var lastError: Exception? = null
+        for (lang in langs) {
+            try {
+                val title = searchTitle(q, lang)
+                if (title != null) {
+                    val summary = fetchSummary(title, lang)
+                    if (summary.isSuccess) return@withContext summary
+                }
+            } catch (e: Exception) {
+                lastError = e
+            }
         }
+        
+        Result.failure(lastError ?: Exception("Nothing found for '$query'"))
     }
 
-    private fun searchTitle(query: String): String? {
+    private fun searchTitle(query: String, lang: String): String? {
         val encoded = URLEncoder.encode(query, Charsets.UTF_8.name())
-        val url = "$BASE/w/api.php?action=query&list=search&srsearch=$encoded&format=json&utf8=1"
+        val url = "${getBase(lang)}/w/api.php?action=query&list=search&srsearch=$encoded&format=json&utf8=1"
         val request = Request.Builder().url(url).get().build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return null
@@ -60,17 +74,17 @@ object WikipediaApi {
         }
     }
 
-    private fun fetchSummary(title: String): Result<WikipediaSummary> {
+    private fun fetchSummary(title: String, lang: String): Result<WikipediaSummary> {
         val encoded = URLEncoder.encode(title, Charsets.UTF_8.name()).replace("+", "%20")
-        val url = "$BASE/api/rest_v1/page/summary/$encoded"
+        val url = "${getBase(lang)}/api/rest_v1/page/summary/$encoded"
         val request = Request.Builder().url(url).get().build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return Result.failure(Exception("HTTP ${response.code}"))
-            val body = response.body?.string() ?: return Result.failure(Exception("Пустой ответ"))
+            val body = response.body?.string() ?: return Result.failure(Exception("Empty response"))
             val json = JSONObject(body)
             val type = json.optString("type", "")
             if (type == "disambiguation") {
-                val extract = json.optString("extract", "Несколько статей с таким названием. Уточните запрос.")
+                val extract = json.optString("extract", "Multiple articles found. Please clarify.")
                 return Result.success(
                     WikipediaSummary(
                         title = json.optString("title", title),
@@ -80,7 +94,7 @@ object WikipediaApi {
                 )
             }
             val extract = json.optString("extract", "").trim()
-            if (extract.isBlank()) return Result.failure(Exception("Нет текста статьи"))
+            if (extract.isBlank()) return Result.failure(Exception("No extract"))
             val thumb = json.optJSONObject("thumbnail")?.optString("source")
             return Result.success(
                 WikipediaSummary(

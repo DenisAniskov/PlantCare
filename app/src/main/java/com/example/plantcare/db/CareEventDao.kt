@@ -10,7 +10,7 @@ interface CareEventDao {
     fun getEventsForPlant(plantId: Int): Flow<List<CareEvent>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertEvent(event: CareEvent)
+    suspend fun insertEvent(event: CareEvent): Long
 
     @Update
     suspend fun updateEvent(event: CareEvent)

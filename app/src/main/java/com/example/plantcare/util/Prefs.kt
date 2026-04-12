@@ -23,7 +23,7 @@ object Prefs {
 
     fun getOpenRouterApiKey(context: Context): String {
         return context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-            .getString(KEY_OPENROUTER_API_KEY, "YOUR_OPENROUTER_API_KEY")?.trim() ?: "YOUR_OPENROUTER_API_KEY"
+            .getString(KEY_OPENROUTER_API_KEY, "")?.trim() ?: ""
     }
 
     fun setProxyBaseUrl(context: Context, url: String) {

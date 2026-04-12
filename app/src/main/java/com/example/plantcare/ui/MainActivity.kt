@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
         val referencePlantDao: ReferencePlantDao = dbInstance.referencePlantDao()
         val plantSpeciesInfoDao: PlantSpeciesInfoDao = dbInstance.plantSpeciesInfoDao()
         val plantDocumentDao: PlantDocumentDao = dbInstance.plantDocumentDao()
+        val chatDao = dbInstance.chatDao()
         
         // Initialize AI components
         val classifier = PlantClassifierImpl(this)
@@ -76,7 +77,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val viewModel = PlantCareViewModel(plantDao, careEventDao, referencePlantDao)
+            val viewModel = PlantCareViewModel(
+                plantDao, 
+                careEventDao, 
+                referencePlantDao, 
+                chatDao,
+                applicationContext
+            )
             PlantCareApp(viewModel, aiService)
         }
     }

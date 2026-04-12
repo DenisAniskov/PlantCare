@@ -90,6 +90,8 @@ fun NeuralScreen(onBack: () -> Unit, aiService: AiService) {
         tflitePredictions = emptyList()
         error = null
         usedTfliteFallback = false
+        rawAiResponse = null
+        statusMessage = null
     }
 
     val takePictureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
@@ -100,6 +102,8 @@ fun NeuralScreen(onBack: () -> Unit, aiService: AiService) {
         tflitePredictions = emptyList()
         error = null
         usedTfliteFallback = false
+        rawAiResponse = null
+        statusMessage = null
     }
 
     fun runTflite(bitmap: Bitmap): List<Pair<String, Float>> {
@@ -196,30 +200,58 @@ fun NeuralScreen(onBack: () -> Unit, aiService: AiService) {
                         statusMessage = null
                         scope.launch {
                             val base64 = uriToBase64(context, uri)
-                            val result = StringBuilder()
-                            var parsed: PlantAnalysisResult? = null
                             
+                            // Запускаем TFLite сразу для мгновенного результата (как превью)
+                            tflitePredictions = withContext(Dispatchers.Default) { runTflite(bitmap) }
+
                             if (base64 != null) {
                                 val response = aiClient.sendMessage(
                                     history = emptyList(),
                                     userText = PlantAnalysisPrompt.TEXT,
                                     imageBase64 = base64,
-                                    systemPrompt = "Ты — эксперт по растениям. Проанализируй изображение и определи название растения, состояние здоровья, проблемы, лечение и уход. Ответь на русском в JSON формате: {\"name\":\"название\",\"latinName\":\"лат название\",\"healthStatus\":\"состояние\",\"healthScore\":0-100,\"problems\":[],\"treatment\":[],\"care\":{\"watering\":\"\",\"light\":\"\",\"temperature\":\"\",\"fertilizer\":\"\"},\"facts\":[]}. Если называешь растение или болезнь — добавь в самом конце, отдельной строкой: KEYWORDS: название на английском"
+                                    systemPrompt = """
+                                        Ты — узкоспециализированный эксперт-система по диагностике растений.
+                                        Твоя задача — проанализировать фото и вернуть данные СТРОГО в формате JSON.
+                                        
+                                        СТРУКТУРА ОТВЕТА (JSON ONLY):
+                                        {
+                                          "name": "Название растения",
+                                          "latinName": "Latinum nomen",
+                                          "healthStatus": "Краткое описание состояния (здорово/больно)",
+                                          "healthScore": 0-100,
+                                          "problems": ["список", "проблем"],
+                                          "treatment": ["шаги", "лечения"],
+                                          "care": {
+                                            "watering": "режим полива",
+                                            "light": "требования к свету",
+                                            "temperature": "режим",
+                                            "fertilizer": "удобрение"
+                                          },
+                                          "facts": ["интересный факт"]
+                                        }
+                                        
+                                        ПРАВИЛА:
+                                        1. Пиши на русском.
+                                        2. Не добавляй никакого текста ДО или ПОСЛЕ JSON.
+                                        3. Если не уверен в растении, дай наиболее вероятный вариант.
+                                    """.trimIndent()
                                 )
                                 if (response.isSuccess) {
                                     val text = response.getOrNull() ?: ""
-                                    rawAiResponse = text
-                                    parsed = parsePlantAnalysis(text)
+                                    val parsed = parsePlantAnalysis(text)
+                                    if (parsed != null) {
+                                        analysis = parsed
+                                        rawAiResponse = null // Очищаем сырой ответ, если парсинг успешен
+                                        usedTfliteFallback = false
+                                    } else {
+                                        rawAiResponse = text // Показываем текст только если JSON не удался
+                                        usedTfliteFallback = false
+                                    }
+                                } else {
+                                    usedTfliteFallback = true
                                 }
-                            }
-                            
-                            if (parsed != null) {
-                                analysis = parsed
-                                usedTfliteFallback = false
                             } else {
                                 usedTfliteFallback = true
-                                tflitePredictions = withContext(Dispatchers.Default) { runTflite(bitmap) }
-                                if (tflitePredictions.isEmpty()) error = "Не удалось получить результат (ИИ прокси и локальная модель)"
                             }
                             loading = false
                         }
@@ -232,33 +264,41 @@ fun NeuralScreen(onBack: () -> Unit, aiService: AiService) {
                 error != null -> Text(error!!, color = MaterialTheme.colorScheme.error, fontSize = 16.sp)
                 analysis != null -> {
                     PlantAnalysisCard(analysis!!)
-                    rawAiResponse?.let { raw ->
-                        val index = raw.indexOf("🖼️")
-                        if (index != -1) {
-                            Spacer(Modifier.height(16.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        "Эталонные изображения",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.height(8.dp))
-                                    AssistantMessageContent(
-                                        text = raw.substring(index),
-                                        textColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                }
+                !rawAiResponse.isNullOrBlank() -> {
+                    // Если ИИ ответил текстом, который не JSON
+                    Card(Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.SmartToy, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Ответ ИИ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                             }
+                            Spacer(Modifier.height(12.dp))
+                            AssistantMessageContent(text = rawAiResponse!!, textColor = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }
-                usedTfliteFallback && tflitePredictions.isNotEmpty() -> TfliteFallbackCard(tflitePredictions)
+                loading && tflitePredictions.isNotEmpty() -> {
+                    TfliteQuickScanCard(tflitePredictions)
+                }
+                usedTfliteFallback && tflitePredictions.isNotEmpty() -> {
+                    TfliteFallbackCard(tflitePredictions)
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun TfliteQuickScanCard(predictions: List<Pair<String, Float>>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text("Предварительное сканирование...", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("ИИ думает, вот что нашла локальная модель: ${predictions.firstOrNull()?.first ?: "..."}", fontSize = 12.sp)
         }
     }
 }
@@ -312,21 +352,30 @@ private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
 
 private fun parsePlantAnalysis(raw: String): PlantAnalysisResult? = try {
     var json = raw.trim()
-    // Извлечь JSON из markdown ```json ... ``` (без substringAfter по "```" — иначе теряется тело)
-    if (json.contains("```")) {
-        json = json.substringAfter("```json", json).substringBefore("```").trim()
+    
+    // 1. Пытаемся найти блок в markdown ```json ... ```
+    if (json.contains("```json")) {
+        json = json.substringAfter("```json").substringBefore("```").trim()
+    } else if (json.contains("```")) {
+        json = json.substringAfter("```").substringBefore("```").trim()
     }
-    // Убрать префикс "json\n" если нет markdown
-    if (!json.startsWith("{") && json.startsWith("json", ignoreCase = true)) {
-        json = json.drop(4).trimStart()
+    
+    // 2. Если JSON все еще не начинается на { (например, есть префикс или Wiki в конце)
+    // Ищем самую первую { и самую последнюю } которая закрывает основной объект
+    val firstBrace = json.indexOf("{")
+    val lastBrace = json.lastIndexOf("}")
+    
+    if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+        // Проверяем, не является ли это "KEYWORDS:" или чем-то еще внутри.
+        // Берем именно этот под-кусок для парсинга
+        json = json.substring(firstBrace, lastBrace + 1)
     }
-    if (!json.startsWith("{")) {
-        val start = json.indexOf("{")
-        val end = json.lastIndexOf("}")
-        if (start >= 0 && end > start) json = json.substring(start, end + 1)
-    }
+
     Gson().fromJson(json, PlantAnalysisResult::class.java)
-} catch (_: Exception) { null }
+} catch (e: Exception) {
+    android.util.Log.e("NeuralScreen", "Parse error: ${e.message}")
+    null
+}
 
 @Composable
 private fun TfliteFallbackCard(predictions: List<Pair<String, Float>>) {

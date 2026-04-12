@@ -29,18 +29,50 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.horizontalScroll
 
+import com.example.plantcare.viewmodel.PlantCareViewModel
+
 @Composable
 fun AddEditCareEventDialog(
     initialEvent: CareEvent? = null,
     onDismiss: () -> Unit,
     onSave: (CareEvent) -> Unit,
-    plantId: Int
+    plantId: Int,
+    viewModel: PlantCareViewModel // Добавляем ViewModel
 ) {
     val context = LocalContext.current
+    val plants by viewModel.plants.collectAsState()
+    val currentPlant = plants.find { it.id == plantId }
+
+    val isGenerating by viewModel.isGeneratingRecommendations.collectAsState()
+    val isPlantGenerating = isGenerating[plantId] ?: false
+
     var type by remember { mutableStateOf(initialEvent?.type ?: CareEventType.WATERING) }
     var intervalDays by remember { mutableStateOf(initialEvent?.intervalDays?.toString() ?: "") }
+    var fertilizerText by remember { mutableStateOf(initialEvent?.fertilizerType ?: "") }
+    
+    // Состояние для умного предупреждения
+    var aiWarning by remember { mutableStateOf<String?>(null) }
+    var fertilizerWarning by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(type, intervalDays, fertilizerText, currentPlant, currentPlant?.aiRecommendations) {
+        currentPlant?.let { plant ->
+            val days = intervalDays.replace(',', '.').toFloatOrNull()
+            val eventName = when(type) {
+                CareEventType.WATERING -> "полив"
+                CareEventType.FERTILIZING -> "подкормка"
+                CareEventType.SPRAYING -> "опрыскивание"
+                CareEventType.REPOTTING -> "пересадка"
+            }
+            aiWarning = viewModel.checkCareEventInterval(plant, eventName, days)
+            
+            if (type == CareEventType.FERTILIZING) {
+                fertilizerWarning = viewModel.checkFertilizer(plant, fertilizerText)
+            } else {
+                fertilizerWarning = null
+            }
+        }
+    }
     var lastDate by remember { mutableStateOf(initialEvent?.lastDate ?: System.currentTimeMillis()) }
-    var fertilizerType by remember { mutableStateOf(TextFieldValue(initialEvent?.fertilizerType ?: "")) }
     var nextDate by remember { mutableStateOf(initialEvent?.nextDate ?: System.currentTimeMillis()) }
     // Новые состояния для напоминания
     var reminderEnabled by remember { mutableStateOf(initialEvent?.reminderEnabled ?: false) }
@@ -96,6 +128,22 @@ fun AddEditCareEventDialog(
         text = {
             val scrollState = rememberScrollState()
             Column(modifier = Modifier.fillMaxWidth().verticalScroll(scrollState)) {
+                if (isPlantGenerating) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("ИИ генерирует рекомендации...", fontSize = 12.sp)
+                        }
+                    }
+                }
+
                 Text("Тип события:", fontSize = 18.sp)
                 CareEventType.values().forEach { eventType ->
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -116,22 +164,43 @@ fun AddEditCareEventDialog(
                 }
                 if (type == CareEventType.FERTILIZING) {
                     OutlinedTextField(
-                        value = fertilizerType,
-                        onValueChange = { fertilizerType = it },
-                        label = { Text("Тип удобрения (опционально)") },
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 18.sp)
+                        value = fertilizerText,
+                        onValueChange = { fertilizerText = it },
+                        label = { Text("Название удобрения (например: Агрикола)") },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 18.sp),
+                        isError = fertilizerWarning?.startsWith("⚠️") == true
                     )
+                    fertilizerWarning?.let { warning ->
+                        Text(
+                            text = warning,
+                            color = if (warning.startsWith("⚠️")) Color(0xFFD32F2F) else Color(0xFF2E7D32),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                        )
+                    }
                 }
                 // Поле для интервала (intervalDays)
                 OutlinedTextField(
                     value = intervalDays,
                     onValueChange = { intervalDays = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
-                    label = { Text("Интервал (дней, часы: 0.5 = 12 ч, 0.25 = 6 ч)") },
+                    label = { Text("Интервал (дней)") },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                     textStyle = LocalTextStyle.current.copy(fontSize = 15.sp),
-                    singleLine = true
+                    singleLine = true,
+                    isError = aiWarning?.startsWith("⚠️") == true
                 )
+
+                // Отображение умного предупреждения
+                aiWarning?.let { warning ->
+                    Text(
+                        text = warning,
+                        color = if (warning.startsWith("⚠️")) Color(0xFFD32F2F) else Color(0xFF1976D2),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                    )
+                }
                 // Поле для выбора последней даты выполнения (lastDate)
                 Row(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
@@ -312,7 +381,7 @@ fun AddEditCareEventDialog(
                             type = type,
                             intervalDays = intervalDays.replace(',', '.').toFloatOrNull(),
                             lastDate = lastDate,
-                            fertilizerType = if (type == CareEventType.FERTILIZING) fertilizerType.text else null,
+                            fertilizerType = if (type == CareEventType.FERTILIZING) fertilizerText else null,
                             nextDate = if (type == CareEventType.REPOTTING) nextDate else null,
                             done = false,
                             reminderEnabled = reminderEnabled,

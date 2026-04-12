@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
@@ -30,9 +31,11 @@ import com.example.plantcare.core.LocalRagEngine
 import com.example.plantcare.sharedui.SharedChatAssistantScreen
 import com.example.plantcare.sharedui.PlantCareDesign
 import java.io.BufferedReader
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -41,7 +44,18 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import java.net.URI
 import java.util.concurrent.TimeUnit
+
+private fun openInBrowser(url: String) {
+    try {
+        if (java.awt.Desktop.isDesktopSupported()) {
+            java.awt.Desktop.getDesktop().browse(URI(url))
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
 
 private fun readResourceText(path: String): String =
     object {}.javaClass.classLoader.getResourceAsStream(path)?.use { it.bufferedReader().use(BufferedReader::readText) } ?: "[]"
@@ -56,145 +70,194 @@ private data class DesktopNote(
     val done: Boolean = false,
 )
 
-private enum class Screen { HOME, PLANTS, ONLINE_MODEL, PLANT_DETAIL, REFERENCE, WEATHER, NOTES, LOCAL_MODEL, DIAGNOSIS }
+private enum class Screen { HOME, PLANTS, ONLINE_MODEL, PLANT_DETAIL, REFERENCE, WEATHER, NOTES, LOCAL_MODEL, DIAGNOSIS, ABOUT }
 
-private const val GROQ_API_KEY = "YOUR_GROQ_API_KEY"
-private const val GROQ_TEXT_MODEL = "llama-3.1-8b-instant"
-private const val GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
-private const val GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"
-private const val GEMINI_MODEL = "gemini-2.0-flash"
-private const val PERENUAL_API_KEY = "YOUR_PERENUAL_API_KEY"
+private const val PERENUAL_API_KEY = "YOUR_PERENUAL_API_KEY_HERE"
+private val API_KEYS = listOf(
+    "YOUR_OPENROUTER_API_KEY_1_HERE",
+    "YOUR_OPENROUTER_API_KEY_2_HERE"
+)
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-@Preview
-fun App() {
-    var darkTheme by remember { mutableStateOf(false) }
-    
-    val engine by remember {
-        mutableStateOf(
-            LocalRagEngine(
-                plantsJson = readResourceText("assets/plants.json"),
-                pestsJson = readResourceText("assets/pests.json"),
-                diseasesJson = readResourceText("assets/diseases.json"),
-                tipsJson = readResourceText("assets/plant_care_tips.json"),
-            )
-        )
-    }
+private data class Stage(val textModel: String, val visionModel: String, val name: String)
 
-    val scope = rememberCoroutineScope()
+private val STAGES = listOf(
+    Stage("nvidia/nemotron-3-super-120b-a12b:free", "nvidia/nemotron-nano-12b-v2-vl:free", "NVIDIA Nemotron"),
+    Stage("minimax/minimax-m2.5:free", "nvidia/nemotron-nano-12b-v2-vl:free", "MiniMax"),
+    Stage("z-ai/glm-4.5-air:free", "nvidia/nemotron-nano-12b-v2-vl:free", "GLM 4.5 Air"),
+    Stage("openrouter/free", "openrouter/free", "OpenRouter Free")
+)
 
-    val httpClient by remember {
-        mutableStateOf(
-            OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
-                .writeTimeout(120, TimeUnit.SECONDS)
-                .build()
-        )
-    }
+private fun extractAiKeywords(text: String): List<String> {
+    val pattern = Regex("(?i)KEYWORDS:\\s*(.+)")
+    val match = pattern.find(text)
+    return match?.groupValues?.get(1)?.split(",")?.map { it.trim().removeSuffix("]").removePrefix("[") }?.filter { it.isNotBlank() } ?: emptyList()
+}
 
-    suspend fun sendGroq(history: List<Map<String, Any>>, userText: String?, imageBase64: String? = null, systemPrompt: String? = null): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val hasImage = !imageBase64.isNullOrBlank()
-            val model = if (hasImage) GROQ_VISION_MODEL else GROQ_TEXT_MODEL
-            val messages = mutableListOf<Map<String, Any>>()
-            if (!systemPrompt.isNullOrBlank()) messages.add(mapOf("role" to "system", "content" to systemPrompt))
-            messages.addAll(history)
-            if (!userText.isNullOrBlank()) {
-                if (hasImage) {
-                    val content = listOf(
-                        mapOf("type" to "text", "text" to userText),
-                        mapOf("type" to "image_url", "image_url" to mapOf("url" to "data:image/jpeg;base64,$imageBase64"))
-                    )
-                    messages.add(mapOf("role" to "user", "content" to content))
-                } else {
-                    messages.add(mapOf("role" to "user", "content" to userText))
+private suspend fun fetchWikimediaImageList(client: OkHttpClient, keyword: String): List<String> = withContext(Dispatchers.IO) {
+    val images = mutableListOf<String>()
+    try {
+        val encoded = URLEncoder.encode(keyword, "UTF-8")
+        val url = "https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=pageimages&generator=search&gsrsearch=$encoded&gsrlimit=3&gsrnamespace=6&piprop=thumbnail&pithumbsize=1000"
+        val request = Request.Builder().url(url).build()
+        client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) {
+                val body = response.body?.string()
+                if (body != null) {
+                    val json = JSONObject(body)
+                    val pages = json.optJSONObject("query")?.optJSONObject("pages")
+                    if (pages != null) {
+                        val keys = pages.keys()
+                        while (keys.hasNext()) {
+                            val page = pages.getJSONObject(keys.next())
+                            page.optJSONObject("thumbnail")?.optString("source")?.let { 
+                                images.add(it) 
+                            }
+                        }
+                    }
                 }
-            } else if (hasImage) {
-                val content = listOf(
-                    mapOf("type" to "text", "text" to "Опиши что на фото растения"),
-                    mapOf("type" to "image_url", "image_url" to mapOf("url" to "data:image/jpeg;base64,$imageBase64"))
-                )
-                messages.add(mapOf("role" to "user", "content" to content))
             }
-            val body = JSONObject(mapOf("model" to model, "messages" to messages, "temperature" to 0.7, "max_tokens" to 2048))
-                .toString().toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("https://api.groq.com/openai/v1/chat/completions")
-                .addHeader("Authorization", "Bearer $GROQ_API_KEY")
-                .addHeader("Content-Type", "application/json")
-                .post(body)
-                .build()
-            httpClient.newCall(request).execute().use { response ->
-                val responseBody = response.body?.charStream()?.readText()
-                if (!response.isSuccessful || responseBody == null) return@withContext Result.failure(Exception("HTTP ${response.code}"))
-                val json = JSONObject(responseBody)
-                if (json.has("choices")) {
-                    val contentText = json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
-                    return@withContext Result.success(contentText.trim())
-                }
-                if (json.has("error")) {
-                    val msg = json.getJSONObject("error").optString("message", responseBody)
-                    return@withContext Result.failure(Exception("Groq: $msg"))
-                }
-                return@withContext Result.failure(Exception("Unexpected response"))
-            }
-        } catch (e: Exception) { Result.failure(e) }
-    }
-
-    suspend fun sendGemini(history: List<Map<String, Any>>, userText: String?, imageBase64: String? = null, systemPrompt: String? = null): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val contents = org.json.JSONArray()
-            if (!systemPrompt.isNullOrBlank()) {
-                val part = JSONObject().put("text", systemPrompt)
-                contents.put(JSONObject().put("role", "user").put("parts", org.json.JSONArray().put(part)))
-            }
-            history.forEach { entry ->
-                val role = entry["role"] as? String ?: "user"
-                val content = entry["content"] as? String ?: ""
-                val geminiRole = if (role == "assistant") "model" else "user"
-                contents.put(JSONObject().put("role", geminiRole).put("parts", org.json.JSONArray().put(JSONObject().put("text", content))))
-            }
-            if (!userText.isNullOrBlank() || !imageBase64.isNullOrBlank()) {
-                val partsArr = org.json.JSONArray()
-                if (!imageBase64.isNullOrBlank()) {
-                    partsArr.put(JSONObject().put("inline_data", JSONObject().put("mime_type", "image/jpeg").put("data", imageBase64)))
-                }
-                if (!userText.isNullOrBlank()) {
-                    partsArr.put(JSONObject().put("text", userText))
-                } else {
-                    partsArr.put(JSONObject().put("text", "Опиши что на фото растения"))
-                }
-                contents.put(JSONObject().put("role", "user").put("parts", partsArr))
-            }
-            val body = JSONObject().put("contents", contents).put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 2048))
-            val url = "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent?key=$GEMINI_API_KEY"
-            val request = Request.Builder().url(url).post(body.toString().toRequestBody("application/json".toMediaType())).build()
-            httpClient.newCall(request).execute().use { response ->
-                val responseBody = response.body?.charStream()?.readText()
-                if (!response.isSuccessful || responseBody == null) return@withContext Result.failure(Exception("HTTP ${response.code}"))
-                val json = JSONObject(responseBody)
-                if (json.has("candidates")) {
-                    val text = json.getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
-                    return@withContext Result.success(text.trim())
-                }
-                return@withContext Result.failure(Exception("Gemini error"))
-            }
-        } catch (e: Exception) { Result.failure(e) }
-    }
-
-    suspend fun sendWithFallback(history: List<Map<String, Any>>, userText: String?, imageBase64: String?, systemPrompt: String?): String {
-        val groqResult = sendGroq(history, userText, imageBase64, systemPrompt)
-        if (groqResult.isSuccess) return groqResult.getOrThrow()
-        val geminiResult = sendGemini(history, userText, imageBase64, systemPrompt)
-        if (geminiResult.isSuccess) return geminiResult.getOrThrow()
-        val query = userText ?: ""
-        val localResults = engine.search(query, limit = 3)
-        if (localResults.isNotEmpty()) {
-            return "[Оффлайн-режим]\n" + localResults.joinToString("\n\n") { "${it.title}: ${it.text}" }
         }
-        return "Нет подключения к интернету и локальная база недоступна."
+    } catch (_: Exception) {}
+    images
+}
+
+private suspend fun fetchWikipediaAndWikimedia(client: OkHttpClient, keywords: List<String>): String = withContext(Dispatchers.IO) {
+    val urls = mutableListOf<String>()
+    for (keyword in keywords.take(2)) {
+        urls.addAll(fetchWikimediaImageList(client, keyword))
+    }
+    val distinctUrls = urls.distinct().take(4)
+    if (distinctUrls.isNotEmpty()) {
+        buildString {
+            append("\n---\n🖼️ **Визуальные эталоны:**\n")
+            distinctUrls.forEach { append("🔍 $it\n") }
+        }
+    } else ""
+}
+
+@Composable
+fun App() {
+    val httpClient = remember { OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build() }
+    val engine = remember { 
+        LocalRagEngine(
+            readResourceText("assets/plants.json"), 
+            readResourceText("assets/pests.json"),
+            readResourceText("assets/diseases.json"),
+            readResourceText("assets/plant_care_tips.json")
+        ) 
+    }
+    var darkTheme by remember { mutableStateOf(false) }
+    var statusText by remember { mutableStateOf("") }
+
+    suspend fun sendWithCascade(
+        history: List<Map<String, Any>>,
+        userText: String?,
+        imageBase64: String?,
+        systemPrompt: String?,
+        onChunk: ((String) -> Unit)? = null
+    ): String {
+        var finalImageDescription: String? = null
+        if (imageBase64 != null) {
+            statusText = "Анализ изображения (Vision)..."
+            for (key in API_KEYS) {
+                try {
+                    val url = "https://openrouter.ai/api/v1/chat/completions"
+                    val stage = STAGES[0]
+                    val bodyJson = JSONObject().apply {
+                        put("model", stage.visionModel)
+                        put("messages", androidx.compose.runtime.snapshots.SnapshotStateList<JSONObject>().apply {
+                            add(JSONObject().apply {
+                                put("role", "user")
+                                put("content", androidx.compose.runtime.snapshots.SnapshotStateList<JSONObject>().apply {
+                                    add(JSONObject().apply { put("type", "text"); put("text", "Describe this plant image in detail for a botanical expert.") })
+                                    add(JSONObject().apply { put("type", "image_url"); put("image_url", JSONObject().apply { put("url", "data:image/jpeg;base64,$imageBase64") }) })
+                                })
+                            })
+                        })
+                    }
+                    val request = Request.Builder().url(url).header("Authorization", "Bearer $key").post(bodyJson.toString().toRequestBody("application/json".toMediaType())).build()
+                    httpClient.newCall(request).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            val json = JSONObject(resp.body?.string() ?: "")
+                            finalImageDescription = json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+                        }
+                    }
+                    if (finalImageDescription != null) break
+                } catch (_: Exception) {}
+            }
+        }
+
+        val fullUserText = if (finalImageDescription != null) {
+            "User provided an image. Description: $finalImageDescription\n\nUser Question: ${userText ?: "Analyze this plant."}"
+        } else {
+            userText ?: ""
+        }
+
+        for (stage in STAGES) {
+            statusText = "Использование ${stage.name}..."
+            for (key in API_KEYS) {
+                try {
+                    val url = "https://openrouter.ai/api/v1/chat/completions"
+                    val bodyJson = JSONObject().apply {
+                        put("model", stage.textModel)
+                        val msgs = mutableListOf<Map<String, Any>>()
+                        if (systemPrompt != null) msgs.add(mapOf("role" to "system", "content" to systemPrompt))
+                        msgs.addAll(history)
+                        msgs.add(mapOf("role" to "user", "content" to fullUserText))
+                        put("messages", msgs)
+                        if (onChunk != null) put("stream", true)
+                    }
+                    val request = Request.Builder().url(url).header("Authorization", "Bearer $key").post(bodyJson.toString().toRequestBody("application/json".toMediaType())).build()
+                    
+                    httpClient.newCall(request).execute().use { resp ->
+                        if (resp.isSuccessful) {
+                            if (onChunk != null) {
+                                val reader = resp.body?.charStream()?.buffered()
+                                var fullText = ""
+                                reader?.forEachLine { line ->
+                                    if (line.startsWith("data: ")) {
+                                        val data = line.substring(6)
+                                        if (data != "[DONE]") {
+                                            val chunk = JSONObject(data).getJSONArray("choices").getJSONObject(0).getJSONObject("delta").optString("content", "")
+                                            fullText += chunk
+                                            onChunk(fullText)
+                                        }
+                                    }
+                                }
+                                statusText = ""
+                                return fullText
+                            } else {
+                                val json = JSONObject(resp.body?.string() ?: "")
+                                val text = json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+                                statusText = ""
+                                return text
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        statusText = "Все модели заняты. Использую локальную базу..."
+        val offlineHeader = "⚠️ [Offline Mode] "
+        val searchResults = engine.search(userText ?: "", limit = 3)
+        val finalOfflineText = if (searchResults.isNotEmpty()) {
+            offlineHeader + "На основе локальной базы:\n\n" + searchResults.joinToString("\n\n") { "${it.title}: ${it.text}" }
+        } else {
+            offlineHeader + "К сожалению, я не смог найти ответ в локальной базе. Проверьте интернет."
+        }
+        
+        if (onChunk != null) {
+            val words = finalOfflineText.split(Regex("(?<=\\s)|(?=\\s)"))
+            var current = ""
+            for (word in words) {
+                current += word
+                onChunk(current)
+                delay(15)
+            }
+        }
+        statusText = ""
+        return finalOfflineText
     }
 
     val plants = remember { mutableStateListOf<DesktopPlant>() }
@@ -247,66 +310,74 @@ fun App() {
                 }
                 Box(Modifier.fillMaxSize().weight(1f)) {
                     when (screen) {
-                    Screen.HOME -> HomeScreenDesktop(
-                        onPlants = { screen = Screen.PLANTS },
-                        onNotes = { screen = Screen.NOTES },
-                        onReference = { screen = Screen.REFERENCE },
-                        onWeather = { screen = Screen.WEATHER },
-                        onDiagnosis = { screen = Screen.DIAGNOSIS },
-                        onNeural = { screen = Screen.LOCAL_MODEL },
-                        onAssistant = { screen = Screen.ONLINE_MODEL },
-                        darkTheme = darkTheme,
-                        onToggleTheme = { darkTheme = !darkTheme }
-                    )
-                    Screen.PLANTS -> PlantsScreenDesktop(
-                        plants = plants,
-                        onOpen = { p -> selected = p; screen = Screen.PLANT_DETAIL },
-                        onEdit = { editPlant = it },
-                        onDelete = { p -> plants.remove(p) }
-                    )
-                    Screen.PLANT_DETAIL -> PlantDetailScreenDesktop(
-                        plant = selected,
-                        events = eventsByPlant[selected?.id ?: -1] ?: mutableStateListOf<DesktopCareEvent>().also { if (selected != null) eventsByPlant[selected!!.id] = it },
-                        onBack = { selected = null; screen = Screen.PLANTS },
-                        onAddEvent = { kind, notesText ->
-                            val pid = selected?.id ?: return@PlantDetailScreenDesktop
-                            val list = eventsByPlant.getOrPut(pid) { mutableStateListOf() }
-                            val nextId = (list.maxOfOrNull { it.id } ?: 0) + 1
-                            list += DesktopCareEvent(nextId, pid, kind, notesText)
-                        },
-                        onDeleteEvent = { ev ->
-                            val pid = selected?.id ?: return@PlantDetailScreenDesktop
-                            eventsByPlant[pid]?.removeIf { it.id == ev.id }
-                        },
-                        onToggleDone = { ev ->
-                            val pid = selected?.id ?: return@PlantDetailScreenDesktop
-                            val list = eventsByPlant[pid] ?: return@PlantDetailScreenDesktop
-                            val idx = list.indexOfFirst { it.id == ev.id }
-                            if (idx >= 0) list[idx] = ev.copy(done = !ev.done)
+                        Screen.HOME -> HomeScreenDesktop(
+                            onPlants = { screen = Screen.PLANTS },
+                            onNotes = { screen = Screen.NOTES },
+                            onReference = { screen = Screen.REFERENCE },
+                            onWeather = { screen = Screen.WEATHER },
+                            onDiagnosis = { screen = Screen.DIAGNOSIS },
+                            onNeural = { screen = Screen.LOCAL_MODEL },
+                            onAssistant = { screen = Screen.ONLINE_MODEL },
+                            onAbout = { screen = Screen.ABOUT },
+                            darkTheme = darkTheme,
+                            onToggleTheme = { darkTheme = !darkTheme }
+                        )
+                        Screen.PLANTS -> PlantsScreenDesktop(
+                            plants = plants,
+                            onOpen = { p -> selected = p; screen = Screen.PLANT_DETAIL },
+                            onEdit = { editPlant = it },
+                            onDelete = { p -> plants.remove(p) }
+                        )
+                        Screen.PLANT_DETAIL -> PlantDetailScreenDesktop(
+                            plant = selected,
+                            events = eventsByPlant[selected?.id ?: -1] ?: mutableStateListOf<DesktopCareEvent>().also { if (selected != null) eventsByPlant[selected!!.id] = it },
+                            onBack = { selected = null; screen = Screen.PLANTS },
+                            onAddEvent = { kind, notesText ->
+                                val pid = selected?.id ?: return@PlantDetailScreenDesktop
+                                val list = eventsByPlant.getOrPut(pid) { mutableStateListOf() }
+                                val nextId = (list.maxOfOrNull { it.id } ?: 0) + 1
+                                list += DesktopCareEvent(nextId, pid, kind, notesText)
+                            },
+                            onDeleteEvent = { ev ->
+                                val pid = selected?.id ?: return@PlantDetailScreenDesktop
+                                eventsByPlant[pid]?.removeIf { it.id == ev.id }
+                            },
+                            onToggleDone = { ev ->
+                                val pid = selected?.id ?: return@PlantDetailScreenDesktop
+                                val list = eventsByPlant[pid] ?: return@PlantDetailScreenDesktop
+                                val idx = list.indexOfFirst { it.id == ev.id }
+                                if (idx >= 0) list[idx] = ev.copy(done = !ev.done)
+                            }
+                        )
+                        Screen.ONLINE_MODEL -> {
+                            val userContext = remember(plants.size) {
+                                if (plants.isEmpty()) "" 
+                                else "\nУ пользователя есть растения: " + plants.joinToString { "${it.name} (${it.type})" } + "."
+                            }
+                            SharedChatAssistantScreen(
+                                onSendLocal = { _ -> "" },
+                                onSendRemote = { text, imageBase64, historyPairs, onChunk ->
+                                    val systemPrompt = "Ты — ассистент по уходу за растениями. $userContext Отвечай кратко, по делу на русском. Если называешь растение или болезнь — добавь в самом конце: KEYWORDS: Name in English"
+                                    val historyApi = historyPairs.map { (role, content) -> mapOf("role" to role, "content" to content) }
+                                    sendWithCascade(historyApi, text, imageBase64, systemPrompt, onChunk)
+                                },
+                                onCopy = { text ->
+                                    val cb = java.awt.Toolkit.getDefaultToolkit().systemClipboard
+                                    val sel = java.awt.datatransfer.StringSelection(text)
+                                    cb.setContents(sel, sel)
+                                }
+                            )
                         }
-                    )
-                    Screen.ONLINE_MODEL -> SharedChatAssistantScreen(
-                        onSendLocal = { _ -> "" },
-                        onSendRemote = { text, imageBase64, historyPairs ->
-                            val systemPrompt = "Ты — ассистент по уходу за растениями. Отвечай кратко, по делу, на русском."
-                            val historyApi = historyPairs.map { (role, content) -> mapOf("role" to role, "content" to content) }
-                            sendWithFallback(historyApi, text, imageBase64, systemPrompt)
-                        },
-                        onCopy = { text ->
-                            val cb = java.awt.Toolkit.getDefaultToolkit().systemClipboard
-                            val sel = java.awt.datatransfer.StringSelection(text)
-                            cb.setContents(sel, sel)
+                        Screen.REFERENCE -> ReferenceScreenDesktop(engine, httpClient)
+                        Screen.DIAGNOSIS -> DiagnosisScreenDesktop(engine, httpClient) { h, ut, ib, sp ->
+                            sendWithCascade(h, ut, ib, sp)
                         }
-                    )
-                    Screen.REFERENCE -> ReferenceScreenDesktop(engine, httpClient)
-                    Screen.DIAGNOSIS -> DiagnosisScreenDesktop(engine, httpClient) { h, ut, ib, sp ->
-                        sendWithFallback(h, ut, ib, sp)
-                    }
-                    Screen.WEATHER -> WeatherScreenDesktop(httpClient)
-                    Screen.NOTES -> NotesScreenDesktop(plants = plants, notes = notes)
-                    Screen.LOCAL_MODEL -> NeuralScreenDesktop(httpClient) { h, ut, ib, sp ->
-                        sendWithFallback(h, ut, ib, sp)
-                    }
+                        Screen.WEATHER -> WeatherScreenDesktop(httpClient)
+                        Screen.NOTES -> NotesScreenDesktop(plants = plants, notes = notes)
+                        Screen.LOCAL_MODEL -> NeuralScreenDesktop(httpClient) { h, ut, ib, sp ->
+                            sendWithCascade(h, ut, ib, sp)
+                        }
+                        Screen.ABOUT -> AboutScreenDesktop { screen = Screen.HOME }
                     }
                 }
             }
@@ -341,6 +412,96 @@ fun App() {
     }
 }
 
+@Composable
+private fun AboutScreenDesktop(onBack: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.widthIn(max = 600.dp).verticalScroll(rememberScrollState())
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Text(
+                text = "PlantCare",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+
+            Text(
+                text = "Версия 1.2.0",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text = "PlantCare — это ваш персональный помощник в мире растений. Приложение объединяет в себе базу знаний, инструменты для диагностики болезней с помощью ИИ и систему напоминаний по уходу.",
+                textAlign = TextAlign.Center,
+                lineHeight = 24.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(32.dp))
+
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                AboutInfoItemDesktop(Icons.Default.Person, "Создатель", "Денис Аниськов") {}
+                AboutInfoItemDesktop(Icons.Default.Language, "Сайт приложения", "plantcaresite.netlify.app") {
+                    openInBrowser("https://plantcaresite.netlify.app/")
+                }
+                AboutInfoItemDesktop(Icons.Default.Code, "GitHub проекта", "github.com/DenisAniskov/PlantCare") {
+                    openInBrowser("https://github.com/DenisAniskov/PlantCare")
+                }
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            Text(
+                text = "© 2025-2026 PlantCare Project",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+
+            Button(onClick = onBack, shape = MaterialTheme.shapes.medium) {
+                Text("Вернуться в меню")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AboutInfoItemDesktop(icon: ImageVector, label: String, value: String, onClick: () -> Unit) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+    }
+}
+
 fun main() = application {
     Window(onCloseRequest = ::exitApplication, title = "PlantCare") {
         CompositionLocalProvider(LocalMenuRouter provides remember { MenuRouter() }) {
@@ -357,7 +518,7 @@ fun main() = application {
                     Item("Заметки", onClick = { router.setScreen?.invoke(Screen.NOTES) })
                     Item("ИИ-анализатор", onClick = { router.setScreen?.invoke(Screen.LOCAL_MODEL) })
                 }
-                Menu("Справка") { Item("О программе", onClick = { /* TODO: dialog */ }) }
+                Menu("Справка") { Item("О программе", onClick = { router.setScreen?.invoke(Screen.ABOUT) }) }
             }
             App()
         }
@@ -381,6 +542,7 @@ private fun HomeScreenDesktop(
     onDiagnosis: () -> Unit,
     onNeural: () -> Unit,
     onAssistant: () -> Unit,
+    onAbout: () -> Unit,
     darkTheme: Boolean,
     onToggleTheme: () -> Unit
 ) {
@@ -391,7 +553,8 @@ private fun HomeScreenDesktop(
         HomeNavItemDesktop("ИИ-анализатор", "Фото-диагностика", Icons.Filled.Memory, onNeural),
         HomeNavItemDesktop("Диагностика", "По симптомам", Icons.Filled.BugReport, onDiagnosis),
         HomeNavItemDesktop("ИИ-ассистент", "Умный помощник", Icons.Filled.Chat, onAssistant),
-        HomeNavItemDesktop("Погода", "Прогноз для сада", Icons.Filled.WbSunny, onWeather)
+        HomeNavItemDesktop("Погода", "Прогноз для сада", Icons.Filled.WbSunny, onWeather),
+        HomeNavItemDesktop("О программе", "Инфо и контакты", Icons.Filled.Info, onAbout)
     )
 
     Box(

@@ -8,6 +8,8 @@ import com.example.plantcare.data.CareEvent
 import com.example.plantcare.data.ReferencePlant
 import com.example.plantcare.data.PlantSpeciesInfo
 import com.example.plantcare.data.PlantDocument
+import com.example.plantcare.data.ChatSession
+import com.example.plantcare.data.ChatMessageEntity
 
 @Database(
     entities = [
@@ -15,9 +17,11 @@ import com.example.plantcare.data.PlantDocument
         CareEvent::class,
         ReferencePlant::class,
         PlantSpeciesInfo::class,
-        PlantDocument::class
+        PlantDocument::class,
+        ChatSession::class,
+        ChatMessageEntity::class
     ],
-    version = 6
+    version = 9
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -26,4 +30,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun referencePlantDao(): ReferencePlantDao
     abstract fun plantSpeciesInfoDao(): PlantSpeciesInfoDao
     abstract fun plantDocumentDao(): PlantDocumentDao
+    abstract fun chatDao(): ChatDao
 } 

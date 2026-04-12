@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.TouchApp
 
 @Composable
 fun MainScreen(
@@ -136,12 +137,21 @@ fun PlantListItem(
             // Для примера: просто кружок (можно добавить статус done у Plant, если потребуется)
             Text("○", color = Color.Gray, fontSize = 22.sp, modifier = Modifier.padding(end = 8.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = plant.name,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = plant.name,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.TouchApp,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                }
                 Text(
                     text = plant.type,
                     fontSize = 18.sp,
@@ -156,4 +166,4 @@ fun PlantListItem(
             }
         }
     }
-} 
+}

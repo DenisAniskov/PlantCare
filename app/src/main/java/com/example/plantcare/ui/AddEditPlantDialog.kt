@@ -1,5 +1,6 @@
 package com.example.plantcare.ui
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +24,9 @@ fun AddEditPlantDialog(
     var type by remember { mutableStateOf(TextFieldValue(initialPlant?.type ?: "")) }
     var notes by remember { mutableStateOf(TextFieldValue(initialPlant?.notes ?: "")) }
     var showReferenceList by remember { mutableStateOf(false) }
+    
+    // Состояние для отображения ошибок валидации
+    var showError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -34,13 +38,27 @@ fun AddEditPlantDialog(
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                AnimatedVisibility(visible = showError) {
+                    Text(
+                        text = "Пожалуйста, заполните обязательные поля (название и тип).",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+                
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Название") },
+                    onValueChange = { 
+                        name = it
+                        if (it.text.isNotBlank()) showError = false 
+                    },
+                    label = { Text("Название *") },
+                    isError = showError && name.text.isBlank(),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     textStyle = LocalTextStyle.current.copy(fontSize = 18.sp)
                 )
+
                 if (referencePlants.isNotEmpty()) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { showReferenceList = true }) {
@@ -48,13 +66,19 @@ fun AddEditPlantDialog(
                         }
                     }
                 }
+
                 OutlinedTextField(
                     value = type,
-                    onValueChange = { type = it },
-                    label = { Text("Тип") },
+                    onValueChange = { 
+                        type = it
+                        if (it.text.isNotBlank()) showError = false
+                    },
+                    label = { Text("Тип (вид) *") },
+                    isError = showError && type.text.isBlank(),
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     textStyle = LocalTextStyle.current.copy(fontSize = 18.sp)
                 )
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -76,6 +100,8 @@ fun AddEditPlantDialog(
                                 notes = notes.text
                             )
                         )
+                    } else {
+                        showError = true
                     }
                 },
                 modifier = Modifier.padding(8.dp)
@@ -123,6 +149,7 @@ fun AddEditPlantDialog(
                                         name = TextFieldValue(plant.name)
                                         if (notes.text.isBlank()) notes = TextFieldValue(plant.description)
                                         showReferenceList = false
+                                        showError = false
                                     }) { Text("Выбрать") }
                                 }
                             )
@@ -132,4 +159,4 @@ fun AddEditPlantDialog(
             }
         )
     }
-} 
+}

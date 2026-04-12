@@ -20,15 +20,9 @@ object AiClientProvider {
     }
 
     fun get(context: Context): AiClient {
-        return when (getBackend(context)) {
-            Backend.OPENROUTER -> {
-                val apiKey = Prefs.getOpenRouterApiKey(context)
-                if (apiKey.isNotBlank()) {
-                    OpenRouterAiClientWithContext(context)
-                } else {
-                    OnDeviceAiClient(context)
-                }
-            }
+        val backend = getBackend(context)
+        return when (backend) {
+            Backend.OPENROUTER -> OpenRouterAiClientWithContext(context)
             Backend.ON_DEVICE -> OnDeviceAiClient(context)
             Backend.CASCADE -> CascadeAiClient(context)
         }

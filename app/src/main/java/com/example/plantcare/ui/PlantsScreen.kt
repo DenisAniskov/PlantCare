@@ -128,7 +128,8 @@ fun PlantsScreen(
                 onSave = {
                     viewModel.addCareEvent(context, it)
                     setShowAddEventDialog(false)
-                }
+                },
+                viewModel = viewModel
             )
         }
         if (showEditEventDialog != null) {
@@ -139,7 +140,8 @@ fun PlantsScreen(
                 onSave = {
                     viewModel.updateCareEvent(context, it)
                     setShowEditEventDialog(null)
-                }
+                },
+                viewModel = viewModel
             )
         }
         if (showDeleteEventDialog != null) {

@@ -74,7 +74,8 @@ fun PlantCareApp(viewModel: PlantCareViewModel, aiService: com.example.plantcare
                     },
                     onNeural = { navController.navigate("neural") },
                     onDiagnosis = { navController.navigate("diagnosis") },
-                    onChatGPT = { navController.navigate("chatgpt_assistant") }
+                    onChatGPT = { navController.navigate("chatgpt_assistant") },
+                    onAbout = { navController.navigate("about") }
                 )
             }
             composable(
@@ -155,7 +156,20 @@ fun PlantCareApp(viewModel: PlantCareViewModel, aiService: com.example.plantcare
                 popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
                 popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
             ) {
-                ChatGPTAssistantScreen(onBack = { navController.popBackStack() }, aiService = aiService)
+                ChatGPTAssistantScreen(
+                    onBack = { navController.popBackStack() },
+                    aiService = aiService,
+                    viewModel = viewModel
+                )
+            }
+            composable(
+                route = "about",
+                enterTransition = { slideInHorizontally() },
+                exitTransition = { slideOutHorizontally() },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
+            ) {
+                AboutScreen(onBack = { navController.popBackStack() })
             }
         }
     }

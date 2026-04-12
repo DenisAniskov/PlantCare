@@ -10,7 +10,7 @@ interface PlantDao {
     fun getAllPlants(): Flow<List<Plant>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertPlant(plant: Plant)
+    suspend fun insertPlant(plant: Plant): Long
 
     @Update
     suspend fun updatePlant(plant: Plant)

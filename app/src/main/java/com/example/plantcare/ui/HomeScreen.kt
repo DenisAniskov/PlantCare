@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +45,8 @@ fun HomeScreen(
     onToggleTheme: () -> Unit,
     onNeural: () -> Unit,
     onDiagnosis: () -> Unit,
-    onChatGPT: () -> Unit
+    onChatGPT: () -> Unit,
+    onAbout: () -> Unit
 ) {
     val navItems = listOf(
         HomeNavItem("Мои растения", "Уход и события", Icons.Filled.Yard, onPlants),
@@ -53,7 +55,8 @@ fun HomeScreen(
         HomeNavItem("ИИ-анализатор", "Фото-диагностика", Icons.Filled.Memory, onNeural),
         HomeNavItem("Диагностика", "По симптомам", Icons.Filled.BugReport, onDiagnosis),
         HomeNavItem("ИИ-ассистент", "Умный помощник", Icons.AutoMirrored.Filled.Chat, onChatGPT),
-        HomeNavItem("Погода", "Прогноз для сада", Icons.Filled.WbSunny, onWeather)
+        HomeNavItem("Погода", "Прогноз для сада", Icons.Filled.WbSunny, onWeather),
+        HomeNavItem("О нас", "Инфо и контакты", Icons.Filled.Info, onAbout)
     )
 
     var showProxyDetails by remember { mutableStateOf(false) }
@@ -189,13 +192,7 @@ private fun HomeNavCard(item: HomeNavItem) {
         onClick = item.route,
         shape = MaterialTheme.shapes.large
     ) {
-        var showProxyDetails by remember { mutableStateOf(false) }
-
-    if (showProxyDetails) {
-        ProxyStatusBottomSheet(onDismiss = { showProxyDetails = false })
-    }
-
-    Box(
+        Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {

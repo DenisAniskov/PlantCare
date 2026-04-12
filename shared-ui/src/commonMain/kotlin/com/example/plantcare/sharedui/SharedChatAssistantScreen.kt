@@ -3,6 +3,7 @@ package com.example.plantcare.sharedui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -145,29 +146,45 @@ fun AssistantMessageContent(text: String, textColor: androidx.compose.ui.graphic
 @Composable
 fun SharedChatAssistantScreen(
     onSendLocal: suspend (String) -> String,
-    onSendRemote: suspend (String?, String?, List<Pair<String, String>>) -> String,
+    onSendRemote: suspend (String?, String?, List<Pair<String, String>>, onChunk: (String) -> Unit) -> String,
     onCopy: (String) -> Unit,
     showTopBar: Boolean = true,
     title: String = "ИИ-ассистент",
     attachedImageBase64: String? = null,
     onPickImage: () -> Unit = {},
+    onTakePicture: () -> Unit = {},
     onClearAttached: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
+    onNewChat: () -> Unit = {},
+    externalMessages: List<ChatMessage>? = null,
     modifier: Modifier = Modifier
 ) {
     var userInput by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    val messages = remember {
-        mutableStateListOf(
-            ChatMessage(
-                role = ChatRole.SYSTEM,
-                text = "Здравствуйте! Я — ваш ассистент по уходу за растениями. Задайте вопрос или приложите фото."
+    
+    // Use external messages if provided, otherwise fallback to local state
+    var localMessages by remember {
+        mutableStateOf(
+            listOf(
+                ChatMessage(
+                    role = ChatRole.SYSTEM,
+                    text = "Здравствуйте! Я — ваш ассистент по уходу за растениями. Задайте вопрос или приложите фото."
+                )
             )
         )
     }
-    val scope = rememberCoroutineScope()
+    
+    val currentMessages = externalMessages ?: localMessages
+    var streamingMessage by remember { mutableStateOf<ChatMessage?>(null) }
+    
+    val displayList = remember(currentMessages, streamingMessage) {
+        if (streamingMessage != null) currentMessages + streamingMessage!! else currentMessages
+    }
 
-    fun buildHistory(): List<Pair<String, String>> = messages
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+
+    fun buildHistory(): List<Pair<String, String>> = currentMessages
         .filter { it.role == ChatRole.USER || it.role == ChatRole.ASSISTANT }
         .map { msg ->
             val role = when (msg.role) {
@@ -194,19 +211,30 @@ fun SharedChatAssistantScreen(
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
                 onClick = {
-                    messages.clear()
-                    messages += ChatMessage(ChatRole.SYSTEM, text = "Начат новый чат. Задайте вопрос или приложите фото.")
+                    if (externalMessages != null) {
+                        onNewChat()
+                    } else {
+                        localMessages = listOf(ChatMessage(ChatRole.SYSTEM, text = "Начат новый чат. Задайте вопрос или приложите фото."))
+                    }
                 },
                 enabled = !isLoading
             ) { Text("➕ Новый чат") }
         }
 
+        val listState = rememberLazyListState()
+        LaunchedEffect(currentMessages.size, streamingMessage?.text) {
+            if (displayList.isNotEmpty()) {
+                listState.animateScrollToItem(displayList.size - 1)
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+            contentPadding = PaddingValues(vertical = 12.dp),
+            state = listState
         ) {
-            items(items = messages) { msg ->
+            items(items = displayList) { msg ->
                 val isUser = msg.role == ChatRole.USER
                 val bubbleColor = when (msg.role) {
                     ChatRole.USER -> MaterialTheme.colorScheme.primaryContainer
@@ -259,11 +287,21 @@ fun SharedChatAssistantScreen(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FilledTonalButton(
+                        onClick = onTakePicture,
+                        enabled = !isLoading,
+                        modifier = Modifier.heightIn(min = 56.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
+                    ) {
+                        Text("📷")
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    FilledTonalButton(
                         onClick = onPickImage,
                         enabled = !isLoading,
-                        modifier = Modifier.heightIn(min = 56.dp)
+                        modifier = Modifier.heightIn(min = 56.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text("📷 Фото")
+                        Text("🖼️")
                     }
                     Spacer(Modifier.width(8.dp))
                     OutlinedTextField(
@@ -282,17 +320,30 @@ fun SharedChatAssistantScreen(
                             if (text.isBlank() && attachedImageBase64.isNullOrBlank()) return@Button
                             val history = buildHistory()
                             val userMsg = if (text.isNotBlank()) text else "[Фото растения]"
-                            messages += ChatMessage(ChatRole.USER, userMsg)
+
+                            // Если сообщения внешние, мы просто уведомляем о новом сообщении (через колбэк отправки)
+                            // Если локальные - добавляем в список сами
+                            if (externalMessages == null) {
+                                localMessages += ChatMessage(ChatRole.USER, userMsg)
+                            }
+
                             userInput = ""
                             isLoading = true
                             val img = attachedImageBase64
                             onClearAttached()
+
                             scope.launch {
                                 val result = runCatching {
-                                    onSendRemote(text.takeIf { it.isNotBlank() }, img, history)
+                                    onSendRemote(text.takeIf { it.isNotBlank() }, img, history) { chunk ->
+                                        // chunk contains the full current accumulated text
+                                        streamingMessage = ChatMessage(ChatRole.ASSISTANT, chunk)
+                                    }
                                 }
-                                val reply = result.getOrElse { "Ошибка: ${it.message}" }
-                                messages += ChatMessage(ChatRole.ASSISTANT, reply)
+                                val finalReply = result.getOrElse { "Ошибка: ${it.message}" }
+                                streamingMessage = null
+                                if (externalMessages == null) {
+                                    localMessages = localMessages + ChatMessage(ChatRole.ASSISTANT, finalReply)
+                                }
                                 isLoading = false
                             }
                         },

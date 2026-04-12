@@ -8,5 +8,6 @@ data class Plant(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val type: String,
-    val notes: String
-) 
+    val notes: String,
+    val aiRecommendations: String? = null // Храним JSON с рекомендациями
+)

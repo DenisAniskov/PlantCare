@@ -6,13 +6,13 @@ junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
-kotlin = "2.1.0"
-ksp = "2.1.0-1.0.29"
+kotlin = "2.2.10"
+ksp = "2.3.2"
 composeBom = "2024.12.01"
 navigationCompose = "2.8.5"
 googlePlayServicesLocation = "21.3.0"
 gson = "2.11.0"
-kotlinVersion = "2.1.0"
+kotlinVersion = "2.2.10"
 composeMultiplatform = "1.7.3"
 ktor = "3.0.1"
 coil = "3.0.4"
@@ -52,6 +52,6 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-android-application = { id = "com.android.application", version = "9.1.0" }
-android-library = { id = "com.android.library", version = "9.1.0" }
+android-application = { id = "com.android.application", version = "9.1.1" }
+android-library = { id = "com.android.library", version = "9.1.1" }
 

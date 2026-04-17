@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +35,53 @@ data class ChatMessage(val role: ChatRole, val text: String)
 fun AssistantMessageContent(text: String, textColor: androidx.compose.ui.graphics.Color) {
     val uriHandler = LocalUriHandler.current
     val context = LocalPlatformContext.current
-    val lines = text.split("\n")
+    
+    // Разделяем рассуждения и основной текст
+    val thinkingMatch = Regex("<thinking>(.*?)</thinking>", RegexOption.DOT_MATCHES_ALL).find(text)
+    val thinkingText = thinkingMatch?.groupValues?.get(1)?.trim()
+    val mainText = text.replace(Regex("<thinking>.*?</thinking>", RegexOption.DOT_MATCHES_ALL), "").trim()
+    
+    val lines = mainText.split("\n")
     
     Column {
+        if (!thinkingText.isNullOrBlank()) {
+            var expanded by remember { mutableStateOf(false) }
+            Surface(
+                modifier = Modifier.padding(bottom = 12.dp).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = MaterialTheme.shapes.medium,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                onClick = { expanded = !expanded }
+            ) {
+                Column(Modifier.padding(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.Lightbulb,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (expanded) "Скрыть рассуждения" else "Посмотреть ход мыслей...",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (expanded) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = thinkingText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor.copy(alpha = 0.7f),
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                }
+            }
+        }
+
         lines.forEach { line ->
             val trimmed = line.trim()
             when {

@@ -49,27 +49,15 @@ class CascadeAiClient(private val context: Context) : AiClient {
     }
 
     private fun updateStatus(message: String) {
-        Log.d("CascadeAiClient", "Status: $message")
-        statusHistory.add(message)
-        statusCallback?.invoke(message)
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        val fullMsg = "[$timestamp] $message"
+        Log.d("CascadeAiClient", "Status: $fullMsg")
+        statusHistory.add(fullMsg)
+        statusCallback?.invoke(fullMsg)
     }
 
     suspend fun buildUserContextSystemPrompt(): String = withContext(Dispatchers.IO) {
-        val plants = plantDao.getAllPlants().first()
-        val contextBuilder = StringBuilder("Ты - эксперт-помощник по уходу за растениями. ")
-        
-        if (plants.isNotEmpty()) {
-            contextBuilder.append("\nУ пользователя есть следующие растения:\n")
-            plants.forEach { plant ->
-                contextBuilder.append("- ${plant.name} (тип: ${plant.type})")
-                if (!plant.notes.isNullOrBlank()) contextBuilder.append(". Заметки: ${plant.notes}")
-                contextBuilder.append("\n")
-            }
-            contextBuilder.append("\nПри ответах учитывай этот список и давай персонализированные советы.")
-        } else {
-            contextBuilder.append("У пользователя пока нет добавленных растений. Помоги ему начать!")
-        }
-        
+        val contextBuilder = StringBuilder("Ты - эксперт-помощник по уходу за растениями. Помогай пользователю советами по выращиванию, лечению и уходу.\n")
         contextBuilder.append("\nВ конце ответа ВСЕГДА добавляй строку 'KEYWORDS: [English Plant Name, Suspected Disease/Problem in English]', чтобы я мог найти визуальные эталоны именно этой проблемы. Например: 'KEYWORDS: Potato, Late blight'.")
         contextBuilder.toString()
     }
@@ -131,9 +119,7 @@ class CascadeAiClient(private val context: Context) : AiClient {
             listOf(customKey)
         } else {
             listOf(
-                "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",
-                "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",
-                "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"
+                "YOUR_OPENROUTER_API_KEY"
             )
         }
     }
@@ -141,7 +127,9 @@ class CascadeAiClient(private val context: Context) : AiClient {
     private val baseUrl = "https://openrouter.ai"
 
     private suspend fun performRequest(model: String, messages: List<Map<String, Any>>, temperature: Double = 0.7): String? {
+        updateStatus("Запрос к модели: $model...")
         for (key in apiKeys) {
+            val keyBrief = if (key.length > 10) key.take(6) + "..." + key.takeLast(4) else "invalid-key"
             try {
                 val body = JSONObject(mapOf(
                     "model" to model,
@@ -158,23 +146,45 @@ class CascadeAiClient(private val context: Context) : AiClient {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    val responseBody = response.body?.string()
-                    if (response.isSuccessful && responseBody != null) {
+                    val responseBody = response.body?.string() ?: ""
+                    if (response.isSuccessful && responseBody.isNotBlank()) {
                         val json = JSONObject(responseBody)
-                        return json.optJSONArray("choices")?.getJSONObject(0)
-                            ?.getJSONObject("message")?.getString("content")
-                    } else if (response.code == 429) {
-                        Log.w("CascadeAiClient", "Rate limit reached for key ${key.take(12)}... switching")
-                        continue
+                        val messageObj = json.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")
+                        val content = messageObj?.optString("content")
+                        val reasoning = messageObj?.optString("reasoning")
+
+                        if (content != null) {
+                            updateStatus("Успех ($model)")
+                            return if (!reasoning.isNullOrBlank()) {
+                                "<thinking>\n$reasoning\n</thinking>\n$content"
+                            } else {
+                                content
+                            }
+                        } else {
+                            updateStatus("Ошибка: Пустой контент в ответе от $model")
+                        }
+                    } else {
+                        val errDetail = if (responseBody.length > 100) responseBody.take(100) + "..." else responseBody
+                        updateStatus("Ошибка HTTP ${response.code} (Ключ: $keyBrief): $errDetail")
+                        if (response.code == 429) {
+                            updateStatus("Лимит запросов (429) для ключа $keyBrief. Пробую следующий...")
+                            continue
+                        }
                     }
                 }
             } catch (e: Exception) {
-                Log.e("CascadeAiClient", "Request failed with key ${key.take(12)}...", e)
-                // Если это ошибка сети (нет интернета), нет смысла пробовать другие ключи для этой же модели
-                if (e is java.net.UnknownHostException || e is java.net.ConnectException) return null
+                updateStatus("Исключение (Ключ $keyBrief): ${e.message}")
+                if (e is java.net.UnknownHostException || e is java.net.ConnectException) {
+                    updateStatus("Критическая ошибка сети: Нет доступа к OpenRouter")
+                    return null
+                }
             }
         }
         return null
+    }
+
+    private fun String.stripThinking(): String {
+        return this.replace(Regex("<thinking>.*?</thinking>", RegexOption.DOT_MATCHES_ALL), "").trim()
     }
 
     override suspend fun sendMessage(
@@ -236,18 +246,22 @@ class CascadeAiClient(private val context: Context) : AiClient {
                 val content = performRequest(stage.textModel, messages, 0.7)
 
                 if (!content.isNullOrBlank()) {
-                    // Если это JSON-запрос (из NeuralScreen), возвращаем как есть, без Wikipedia
+                    // Если это JSON-запрос (из NeuralScreen), возвращаем СТРОГО чистый контент без рассуждений
                     if (systemPrompt?.contains("JSON") == true) {
-                        return@withContext Result.success(content.trim())
+                        val cleanJson = content.stripThinking()
+                        return@withContext Result.success(cleanJson)
                     }
 
-                    val aiKeywords = extractAiKeywords(content)
-                    val finalKeywords = aiKeywords.ifEmpty { extractHeuristicKeywords(content) }
+                    // Для обычного чата работаем с очищенным текстом для поиска ключевых слов
+                    val cleanTextForKeywords = content.stripThinking()
+                    val aiKeywords = extractAiKeywords(cleanTextForKeywords)
+                    val finalKeywords = aiKeywords.ifEmpty { extractHeuristicKeywords(cleanTextForKeywords) }
                     
                     var finalResponse = content
                     if (finalKeywords.isNotEmpty()) {
                         updateStatus("Ищем справку для: ${finalKeywords.joinToString(", ")}...")
                         val wikiInfo = fetchWikipediaAndWikimedia(finalKeywords)
+                        // Удаляем KEYWORDS из видимого текста, но сохраняем <thinking> если он есть
                         finalResponse = content.replace(Regex("(?i)KEYWORDS:.*"), "").trim() + "\n\n" + wikiInfo
                     }
                     
@@ -260,8 +274,17 @@ class CascadeAiClient(private val context: Context) : AiClient {
             }
         }
 
-        updateStatus("Используем оффлайн-режим...")
-        return@withContext getLocalFallback(finalUserText, imageBase64)
+        updateStatus("Все модели каскада не ответили.")
+        val debugReport = buildString {
+            append("⚠️ ОШИБКА ИИ-КАСКАДА\n")
+            append("--------------------\n")
+            statusHistory.forEach { append(it).append("\n") }
+            append("--------------------\n")
+            append("Использую оффлайн-режим...")
+        }
+        
+        val localResult = getLocalFallback(finalUserText, imageBase64)
+        return@withContext Result.success(debugReport + "\n\n" + localResult.getOrNull())
     }
 
     private fun extractAiKeywords(text: String): List<String> {

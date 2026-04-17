@@ -89,9 +89,9 @@ fun AboutScreen(onBack: () -> Unit) {
             AboutLinkItem(
                 icon = Icons.Default.Language,
                 label = "Сайт приложения",
-                value = "plantcaresite.netlify.app",
+                value = "plantcaresite.vercel.app",
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://plantcaresite.netlify.app/"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://plantcaresite.vercel.app/"))
                     context.startActivity(intent)
                 }
             )

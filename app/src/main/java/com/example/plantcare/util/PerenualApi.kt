@@ -16,7 +16,7 @@ import org.json.JSONObject
 import com.example.plantcare.ai.TranslationService
 
 object PerenualApi {
-    private const val API_KEY = "sk-x4vY69ced5ea74a8516032"
+    private const val API_KEY = "YOUR_PERENUAL_API_KEY"
     private const val BASE_URL = "https://perenual.com/api"
 
     private val client = HttpClient(OkHttp) {

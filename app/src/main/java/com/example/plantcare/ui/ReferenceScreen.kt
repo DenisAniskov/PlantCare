@@ -172,30 +172,12 @@ fun ReferenceScreen(onBack: () -> Unit, viewModel: PlantCareViewModel) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text(if (selectedTab == 0) "Растение, болезнь или вредитель" else "Название растения") },
-                placeholder = { Text(if (selectedTab == 0) "Например: роза, тля" else "Например: Monstera") },
+                label = { Text(if (selectedTab == 0) "Растение, болезнь или вредитель" else "Название растения (англ.)") },
+                placeholder = { Text(if (selectedTab == 0) "Например: роза, тля" else "Например: Monstera (англ.)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium
             )
-            
-            if (selectedTab == 1) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Checkbox(
-                        checked = translateEnabled,
-                        onCheckedChange = { translateEnabled = it }
-                    )
-                    Text(
-                        "Переводить на русский (ИИ)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                }
-            }
-
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = { searchTriggered = query.trim() },

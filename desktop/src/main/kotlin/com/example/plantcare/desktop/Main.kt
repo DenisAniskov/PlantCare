@@ -43,6 +43,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -72,12 +73,9 @@ private data class DesktopNote(
 
 private enum class Screen { HOME, PLANTS, ONLINE_MODEL, PLANT_DETAIL, REFERENCE, WEATHER, NOTES, LOCAL_MODEL, DIAGNOSIS, ABOUT }
 
-private const val PERENUAL_API_KEY = "sk-x4vY69ced5ea74a8516032"
+private const val PERENUAL_API_KEY = "YOUR_PERENUAL_API_KEY"
 private val API_KEYS = listOf(
-    "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",
-    "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",
-    "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",
-    "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"
+    "YOUR_OPENROUTER_API_KEY"
 )
 
 private data class Stage(val textModel: String, val visionModel: String, val name: String)
@@ -139,7 +137,12 @@ private suspend fun fetchWikipediaAndWikimedia(client: OkHttpClient, keywords: L
 
 @Composable
 fun App() {
-    val httpClient = remember { OkHttpClient.Builder().connectTimeout(30, TimeUnit.SECONDS).readTimeout(30, TimeUnit.SECONDS).build() }
+    val httpClient = remember { 
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS) // Уменьшили таймаут
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build() 
+    }
     val engine = remember { 
         LocalRagEngine(
             readResourceText("assets/plants.json"), 
@@ -157,7 +160,16 @@ fun App() {
         imageBase64: String?,
         systemPrompt: String?,
         onChunk: ((String) -> Unit)? = null
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
+        var debugLog = "--- [DEBUG LOG] ---\n"
+        fun logToChat(msg: String) {
+            val formatted = ">>> $msg"
+            println(formatted)
+            debugLog += formatted + "\n"
+            onChunk?.invoke(debugLog)
+        }
+
+        logToChat("Cascade Started. Keys: ${API_KEYS.size}, Image: ${imageBase64 != null}")
         var finalImageDescription: String? = null
         if (imageBase64 != null) {
             statusText = "Анализ изображения (Vision)..."
@@ -167,25 +179,38 @@ fun App() {
                     val stage = STAGES[0]
                     val bodyJson = JSONObject().apply {
                         put("model", stage.visionModel)
-                        put("messages", androidx.compose.runtime.snapshots.SnapshotStateList<JSONObject>().apply {
-                            add(JSONObject().apply {
-                                put("role", "user")
-                                put("content", androidx.compose.runtime.snapshots.SnapshotStateList<JSONObject>().apply {
-                                    add(JSONObject().apply { put("type", "text"); put("text", "Describe this plant image in detail for a botanical expert.") })
-                                    add(JSONObject().apply { put("type", "image_url"); put("image_url", JSONObject().apply { put("url", "data:image/jpeg;base64,$imageBase64") }) })
-                                })
-                            })
-                        })
+                        val messages = JSONArray()
+                        val message = JSONObject()
+                        message.put("role", "user")
+                        val content = JSONArray()
+                        content.put(JSONObject().apply { put("type", "text"); put("text", "Describe this plant image in detail for a botanical expert.") })
+                        content.put(JSONObject().apply { put("type", "image_url"); put("image_url", JSONObject().apply { put("url", "data:image/jpeg;base64,$imageBase64") }) })
+                        message.put("content", content)
+                        messages.put(message)
+                        put("messages", messages)
                     }
-                    val request = Request.Builder().url(url).header("Authorization", "Bearer $key").post(bodyJson.toString().toRequestBody("application/json".toMediaType())).build()
+                    val request = Request.Builder()
+                        .url(url)
+                        .header("Authorization", "Bearer $key")
+                        .header("HTTP-Referer", "https://github.com/example/plantcare") // Полезно для OpenRouter
+                        .post(bodyJson.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+
+                    logToChat("Sending Vision request to ${stage.visionModel}...")
                     httpClient.newCall(request).execute().use { resp ->
+                        val body = resp.body?.string() ?: ""
                         if (resp.isSuccessful) {
-                            val json = JSONObject(resp.body?.string() ?: "")
+                            val json = JSONObject(body)
                             finalImageDescription = json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
+                            logToChat("Vision Success!")
+                        } else {
+                            logToChat("Vision Error ${resp.code}: $body")
                         }
                     }
                     if (finalImageDescription != null) break
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    println(">>> Vision Exception: ${e.message}")
+                }
             }
         }
 
@@ -202,44 +227,67 @@ fun App() {
                     val url = "https://openrouter.ai/api/v1/chat/completions"
                     val bodyJson = JSONObject().apply {
                         put("model", stage.textModel)
-                        val msgs = mutableListOf<Map<String, Any>>()
-                        if (systemPrompt != null) msgs.add(mapOf("role" to "system", "content" to systemPrompt))
-                        msgs.addAll(history)
-                        msgs.add(mapOf("role" to "user", "content" to fullUserText))
+                        val msgs = JSONArray()
+                        if (!systemPrompt.isNullOrBlank()) {
+                            msgs.put(JSONObject().apply { put("role", "system"); put("content", systemPrompt) })
+                        }
+                        history.forEach { h -> 
+                            msgs.put(JSONObject().apply {
+                                put("role", h["role"] ?: "user")
+                                put("content", h["content"] ?: "")
+                            })
+                        }
+                        msgs.put(JSONObject().apply { put("role", "user"); put("content", fullUserText) })
                         put("messages", msgs)
                         if (onChunk != null) put("stream", true)
                     }
-                    val request = Request.Builder().url(url).header("Authorization", "Bearer $key").post(bodyJson.toString().toRequestBody("application/json".toMediaType())).build()
+                    val request = Request.Builder()
+                        .url(url)
+                        .header("Authorization", "Bearer $key")
+                        .header("HTTP-Referer", "https://github.com/example/plantcare")
+                        .post(bodyJson.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
                     
+                    logToChat("Sending Text request to ${stage.textModel} (${stage.name})...")
                     httpClient.newCall(request).execute().use { resp ->
                         if (resp.isSuccessful) {
                             if (onChunk != null) {
                                 val reader = resp.body?.charStream()?.buffered()
-                                var fullText = ""
+                                var fullText = debugLog + "\n--- [RESPONSE] ---\n"
                                 reader?.forEachLine { line ->
                                     if (line.startsWith("data: ")) {
-                                        val data = line.substring(6)
-                                        if (data != "[DONE]") {
-                                            val chunk = JSONObject(data).getJSONArray("choices").getJSONObject(0).getJSONObject("delta").optString("content", "")
-                                            fullText += chunk
-                                            onChunk(fullText)
+                                        val data = line.substring(6).trim()
+                                        if (data != "[DONE]" && data.startsWith("{")) {
+                                            try {
+                                                val chunk = JSONObject(data).getJSONArray("choices").getJSONObject(0).getJSONObject("delta").optString("content", "")
+                                                fullText += chunk
+                                                onChunk(fullText)
+                                            } catch (e: Exception) { /* Пропуск битых чанков */ }
                                         }
                                     }
                                 }
                                 statusText = ""
-                                return fullText
+                                return@withContext fullText
                             } else {
-                                val json = JSONObject(resp.body?.string() ?: "")
+                                val body = resp.body?.string() ?: ""
+                                val json = JSONObject(body)
                                 val text = json.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content")
                                 statusText = ""
-                                return text
+                                logToChat("Text Success!")
+                                return@withContext text
                             }
+                        } else {
+                            val errBody = resp.body?.string() ?: ""
+                            logToChat("Text Error ${resp.code}: $errBody")
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    logToChat("Text Exception [${stage.name}]: ${e.message}")
+                }
             }
         }
 
+        println(">>> All AI models failed. Falling back to Local RAG.")
         statusText = "Все модели заняты. Использую локальную базу..."
         val offlineHeader = "⚠️ [Offline Mode] "
         val searchResults = engine.search(userText ?: "", limit = 3)
@@ -359,9 +407,12 @@ fun App() {
                             SharedChatAssistantScreen(
                                 onSendLocal = { _ -> "" },
                                 onSendRemote = { text, imageBase64, historyPairs, onChunk ->
+                                    println("\n\n!!! BUTTON CLICKED - STARTING AI REQUEST !!!\n\n")
                                     val systemPrompt = "Ты — ассистент по уходу за растениями. $userContext Отвечай кратко, по делу на русском. Если называешь растение или болезнь — добавь в самом конце: KEYWORDS: Name in English"
                                     val historyApi = historyPairs.map { (role, content) -> mapOf("role" to role, "content" to content) }
-                                    sendWithCascade(historyApi, text, imageBase64, systemPrompt, onChunk)
+                                    val result = sendWithCascade(historyApi, text, imageBase64, systemPrompt, onChunk)
+                                    println("\n!!! REQUEST FINISHED !!!\n")
+                                    result
                                 },
                                 onCopy = { text ->
                                     val cb = java.awt.Toolkit.getDefaultToolkit().systemClipboard

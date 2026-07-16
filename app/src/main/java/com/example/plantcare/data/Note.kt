@@ -1,9 +1,14 @@
 package com.example.plantcare.data
 
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "notes", indices = [Index("plantId")])
 data class Note(
-    val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val text: String,
     val date: Long = System.currentTimeMillis(),
-    val plantId: Int? = null, // если null — заметка общая
+    val plantId: Int? = null,
     val done: Boolean = false
-) 
+)

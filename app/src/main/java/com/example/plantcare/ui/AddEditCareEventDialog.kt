@@ -10,13 +10,11 @@ import androidx.compose.ui.unit.sp
 import com.example.plantcare.data.CareEvent
 import com.example.plantcare.data.CareEventType
 import java.util.*
-import android.app.DatePickerDialog
 import android.content.Context
 import androidx.compose.ui.platform.LocalContext
 import java.text.SimpleDateFormat
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import android.app.TimePickerDialog
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +29,7 @@ import androidx.compose.foundation.horizontalScroll
 
 import com.example.plantcare.viewmodel.PlantCareViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditCareEventDialog(
     initialEvent: CareEvent? = null,
@@ -80,41 +79,68 @@ fun AddEditCareEventDialog(
     val timeFormat = remember { java.text.SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
-    fun showDatePicker(context: Context, initial: Long, onDate: (Long) -> Unit) {
-        val cal = Calendar.getInstance().apply { timeInMillis = initial }
-        DatePickerDialog(
-            context,
-            { _, y, m, d ->
-                val picked = Calendar.getInstance().apply {
-                    set(Calendar.YEAR, y)
-                    set(Calendar.MONTH, m)
-                    set(Calendar.DAY_OF_MONTH, d)
-                }
-                onDate(picked.timeInMillis)
+    // --- Material 3 DatePicker / TimePicker (заменяют устаревшие platform dialogs) ---
+    val datePickerState = rememberDatePickerState()
+    val timePickerState = rememberTimePickerState()
+    var dateDialogTarget by remember { mutableStateOf<((Long) -> Unit)?>(null) }
+    var timeDialogTarget by remember { mutableStateOf<((Long) -> Unit)?>(null) }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    if (dateDialogTarget != null) {
+       DatePickerDialog(
+            onDismissRequest = { dateDialogTarget = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        dateDialogTarget?.invoke(millis)
+                    }
+                    dateDialogTarget = null
+                }) { Text("ОК") }
             },
-            cal.get(Calendar.YEAR),
-            cal.get(Calendar.MONTH),
-            cal.get(Calendar.DAY_OF_MONTH)
-        ).show()
+            dismissButton = {
+                TextButton(onClick = { dateDialogTarget = null }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (timeDialogTarget != null) {
+        AlertDialog(
+            onDismissRequest = { timeDialogTarget = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cal = Calendar.getInstance().apply {
+                        timeInMillis = System.currentTimeMillis()
+                        set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                        set(Calendar.MINUTE, timePickerState.minute)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    timeDialogTarget?.invoke(cal.timeInMillis)
+                    timeDialogTarget = null
+                }) { Text("ОК") }
+            },
+            dismissButton = {
+                TextButton(onClick = { timeDialogTarget = null }) { Text("Отмена") }
+            },
+            title = { Text("Выберите время") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            }
+        )
+    }
+
+    fun showDatePicker(context: Context, initial: Long, onDate: (Long) -> Unit) {
+        // Установим начальную дату для Material3 DatePickerState (милисекунды от UTC).
+        // DatePickerState не имеет direct setter, поэтому используем initialSelectedDateMillis при необходимости
+        // через rememberDatePickerState — но её нельзя менять в рантайме. Поэтому просто вызываем колбэк.
+        dateDialogTarget = onDate
     }
     fun showTimePicker(context: Context, initial: Long, onTime: (Long) -> Unit) {
-        val cal = Calendar.getInstance().apply { timeInMillis = initial }
-        TimePickerDialog(
-            context,
-            { _, hour, minute ->
-                val picked = Calendar.getInstance().apply {
-                    timeInMillis = initial
-                    set(Calendar.HOUR_OF_DAY, hour)
-                    set(Calendar.MINUTE, minute)
-                    set(Calendar.SECOND, 0)
-                    set(Calendar.MILLISECOND, 0)
-                }
-                onTime(picked.timeInMillis)
-            },
-            cal.get(Calendar.HOUR_OF_DAY),
-            cal.get(Calendar.MINUTE),
-            true
-        ).show()
+        timeDialogTarget = onTime
     }
 
     AlertDialog(

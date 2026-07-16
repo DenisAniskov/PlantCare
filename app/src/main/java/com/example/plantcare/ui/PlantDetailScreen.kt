@@ -112,6 +112,9 @@ fun PlantDetailScreen(
                 modifier = Modifier.weight(1f),
                 state = listState
             ) {
+                item(key = "ai-recs", contentType = "AiRecommendations") {
+                    AiRecommendationsCard(plant)
+                }
                 items(events, key = { it.id }, contentType = { "CareEvent" }) { event ->
                     CareEventListItem(
                         event = event,
@@ -221,5 +224,72 @@ fun CareEventListItem(
                 Icon(Icons.Default.Delete, contentDescription = "Удалить")
             }
         }
+    }
+}
+
+/**
+ * Карточка с ИИ-рекомендациями по уходу из plant.aiRecommendations.
+ * Парсит JSON-ветки {watering_days, fertilizing_days, spraying_days, replanting_months, fertilizer_type}.
+ */
+@Composable
+private fun AiRecommendationsCard(plant: Plant) {
+    val advice = remember(plant.id, plant.aiRecommendations) { parseAiAdvice(plant.aiRecommendations) } ?: return
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+        ),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🤖 ИИ-рекомендации по уходу", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            advice.wateringDays?.let { AdviceRow("💧 Полив", "раз в $it дн.") }
+            advice.fertilizingDays?.let { AdviceRow("🌱 Подкормка", "раз в $it дн.") }
+            advice.sprayingDays?.let { AdviceRow("💦 Опрыскивание", "раз в $it дн.") }
+            advice.replantingMonths?.let { AdviceRow("🪴 Пересадка", "раз в $it мес.") }
+            advice.fertilizerType?.let {
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                    Text("🧪 Удобрение:", fontSize = 15.sp, modifier = Modifier.padding(end = 8.dp))
+                    Text(it, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+private data class AiAdvice(
+    val wateringDays: Int? = null,
+    val fertilizingDays: Int? = null,
+    val sprayingDays: Int? = null,
+    val replantingMonths: Int? = null,
+    val fertilizerType: String? = null
+)
+
+private fun parseAiAdvice(json: String?): AiAdvice? {
+    if (json.isNullOrBlank()) return null
+    return try {
+        val o = org.json.JSONObject(json)
+        fun optInt(k: String) = if (o.has(k) && !o.isNull(k)) o.optInt(k).takeIf { it > 0 } else null
+        val ft = o.optString("fertilizer_type", "").takeIf { it.isNotBlank() && it != "null" }
+        AiAdvice(
+            wateringDays = optInt("watering_days"),
+            fertilizingDays = optInt("fertilizing_days"),
+            sprayingDays = optInt("spraying_days"),
+            replantingMonths = optInt("replanting_months"),
+            fertilizerType = ft
+        )
+    } catch (e: Exception) { null }
+}
+
+@Composable
+private fun AdviceRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Text(value, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 } 

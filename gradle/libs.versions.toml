@@ -52,6 +52,6 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-android-application = { id = "com.android.application", version = "9.1.1" }
-android-library = { id = "com.android.library", version = "9.1.1" }
+android-application = { id = "com.android.application", version = "9.3.0" }
+android-library = { id = "com.android.library", version = "9.3.0" }
 

@@ -16,13 +16,19 @@ class PlantCareViewModel(
     private val careEventDao: CareEventDao,
     private val referencePlantDao: ReferencePlantDao,
     private val chatDao: ChatDao,
-    applicationContext: Context // Передаем applicationContext
+    private val noteDao: NoteDao,
+    applicationContext: Context
 ) : ViewModel() {
 
     private val aiClient = com.example.plantcare.ai.CascadeAiClient(applicationContext)
 
     val plants: StateFlow<List<Plant>> = plantDao.getAllPlants()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allEvents: StateFlow<List<CareEvent>> = careEventDao.getAllEvents()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun plantNameById(id: Int): String? = plants.value.find { it.id == id }?.name
 
     val referencePlants: StateFlow<List<ReferencePlant>> = referencePlantDao.getAllReferencePlants()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -127,7 +133,7 @@ class PlantCareViewModel(
     fun checkFertilizer(plant: Plant, userFertilizer: String): String? {
         val recommendations = plant.aiRecommendations ?: return null
         if (userFertilizer.isBlank()) return null
-        
+
         return try {
             val json = org.json.JSONObject(recommendations)
             val recType = json.optString("fertilizer_type", "")
@@ -136,7 +142,7 @@ class PlantCareViewModel(
                 val words = userFertilizer.lowercase().split(" ", "-", ".")
                 val recWords = recType.lowercase().split(" ", "-", ".")
                 val match = words.any { w -> w.length > 3 && recWords.any { rw -> rw.contains(w) || w.contains(rw) } }
-                
+
                 if (!match) {
                     "⚠️ Внимание: непроверенное удобрение. Рекомендуемые варианты: $recType"
                 } else {
@@ -146,6 +152,37 @@ class PlantCareViewModel(
         } catch (e: Exception) {
             null
         }
+    }
+
+    /**
+     * Распарсенные ИИ-рекомендации по уходу (нуль-безопасно).
+     * Поля JSON: watering_days, fertilizing_days, spraying_days, replanting_months, fertilizer_type.
+     */
+    data class CareAdvice(
+        val wateringDays: Int? = null,
+        val fertilizingDays: Int? = null,
+        val sprayingDays: Int? = null,
+        val replantingMonths: Int? = null,
+        val fertilizerType: String? = null
+    )
+
+    fun parseAiRecommendations(plant: Plant): CareAdvice? {
+        val json = plant.aiRecommendations ?: return null
+        return try {
+            val o = org.json.JSONObject(json)
+            fun optInt(key: String): Int? = if (o.has(key) && !o.isNull(key)) o.optInt(key).takeIf { it > 0 } else null
+            val ft = o.optString("fertilizer_type", "").takeIf { it.isNotBlank() && it != "null" }
+            CareAdvice(
+                wateringDays = optInt("watering_days"),
+                fertilizingDays = optInt("fertilizing_days"),
+                sprayingDays = optInt("spraying_days"),
+                replantingMonths = optInt("replanting_months"),
+                fertilizerType = ft
+            ).takeIf { adv ->
+                adv.wateringDays != null || adv.fertilizingDays != null ||
+                adv.sprayingDays != null || adv.replantingMonths != null || adv.fertilizerType != null
+            }
+        } catch (e: Exception) { null }
     }
 
     fun updatePlant(plant: Plant) {
@@ -206,18 +243,27 @@ class PlantCareViewModel(
     private val _notes = MutableStateFlow<List<Note>>(emptyList())
     val notes: StateFlow<List<Note>> = _notes.asStateFlow()
 
+    init {
+        // Персистентные заметки: собираем из Room.
+        viewModelScope.launch {
+            noteDao.getAllNotes().collect { list ->
+                _notes.value = list.sortedByDescending { it.date }
+            }
+        }
+    }
+
     fun addNote(note: Note) {
-        _notes.value = _notes.value + note
+        viewModelScope.launch { noteDao.insertNote(note) }
     }
     fun updateNote(note: Note) {
-        _notes.value = _notes.value.map { if (it.id == note.id) note else it }
+        viewModelScope.launch { noteDao.updateNote(note) }
     }
     fun deleteNote(note: Note) {
-        _notes.value = _notes.value.filter { it.id != note.id }
+        viewModelScope.launch { noteDao.deleteNote(note) }
     }
 
     fun toggleNoteDone(note: Note) {
-        updateNote(note.copy(done = !note.done))
+        viewModelScope.launch { noteDao.setDone(note.id, !note.done) }
     }
 
     val chatSessions: StateFlow<List<ChatSession>> = chatDao.getAllSessions()

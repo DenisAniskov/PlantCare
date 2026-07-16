@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.migration.Migration
 import com.example.plantcare.db.AppDatabase
 import com.example.plantcare.viewmodel.PlantCareViewModel
 import com.example.plantcare.db.PlantDao
@@ -13,6 +14,7 @@ import com.example.plantcare.db.CareEventDao
 import com.example.plantcare.db.ReferencePlantDao
 import com.example.plantcare.db.PlantSpeciesInfoDao
 import com.example.plantcare.db.PlantDocumentDao
+import com.example.plantcare.db.NoteDao
 import com.example.plantcare.data.ReferencePlant
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +34,23 @@ import com.example.plantcare.network.ProxySentinel
 import androidx.lifecycle.lifecycleScope
 
 class MainActivity : ComponentActivity() {
+
+    /** Migration v9 -> v10: добавляем таблицу notes для персистентных заметок. */
+    private val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS notes (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    text TEXT NOT NULL,
+                    date INTEGER NOT NULL,
+                    plantId INTEGER,
+                    done INTEGER NOT NULL DEFAULT 0
+                )""".trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_notes_plantId ON notes(plantId)")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
@@ -55,6 +74,7 @@ class MainActivity : ComponentActivity() {
                     // However, for simplicity in this migration, we'll keep the logic but ensure it runs correctly
                 }
             })
+            .addMigrations(MIGRATION_9_10)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -63,6 +83,7 @@ class MainActivity : ComponentActivity() {
         val referencePlantDao: ReferencePlantDao = dbInstance.referencePlantDao()
         val plantSpeciesInfoDao: PlantSpeciesInfoDao = dbInstance.plantSpeciesInfoDao()
         val plantDocumentDao: PlantDocumentDao = dbInstance.plantDocumentDao()
+        val noteDao: NoteDao = dbInstance.noteDao()
         val chatDao = dbInstance.chatDao()
         
         // Initialize AI components
@@ -78,10 +99,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel = PlantCareViewModel(
-                plantDao, 
-                careEventDao, 
-                referencePlantDao, 
+                plantDao,
+                careEventDao,
+                referencePlantDao,
                 chatDao,
+                noteDao,
                 applicationContext
             )
             PlantCareApp(viewModel, aiService)

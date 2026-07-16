@@ -9,6 +9,9 @@ interface CareEventDao {
     @Query("SELECT * FROM care_events WHERE plantId = :plantId")
     fun getEventsForPlant(plantId: Int): Flow<List<CareEvent>>
 
+    @Query("SELECT * FROM care_events ORDER BY (lastDate IS NULL), lastDate ASC")
+    fun getAllEvents(): Flow<List<CareEvent>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEvent(event: CareEvent): Long
 

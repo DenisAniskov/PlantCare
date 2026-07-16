@@ -46,9 +46,12 @@ fun HomeScreen(
     onNeural: () -> Unit,
     onDiagnosis: () -> Unit,
     onChatGPT: () -> Unit,
-    onAbout: () -> Unit
+    onAbout: () -> Unit,
+    onToday: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val navItems = listOf(
+        HomeNavItem("Сегодня", "Задачи по уходу", Icons.Filled.EventAvailable, onToday),
         HomeNavItem("Мои растения", "Уход и события", Icons.Filled.Yard, onPlants),
         HomeNavItem("Заметки", "Записи и напоминания", Icons.AutoMirrored.Filled.Note, onNotes),
         HomeNavItem("Справочник", "Поиск растений", Icons.AutoMirrored.Filled.MenuBook, onReference),
@@ -56,6 +59,7 @@ fun HomeScreen(
         HomeNavItem("Диагностика", "По симптомам", Icons.Filled.BugReport, onDiagnosis),
         HomeNavItem("ИИ-ассистент", "Умный помощник", Icons.AutoMirrored.Filled.Chat, onChatGPT),
         HomeNavItem("Погода", "Прогноз для сада", Icons.Filled.WbSunny, onWeather),
+        HomeNavItem("Настройки", "Тема, AI, прокси", Icons.Filled.Settings, onSettings),
         HomeNavItem("О нас", "Инфо и контакты", Icons.Filled.Info, onAbout)
     )
 

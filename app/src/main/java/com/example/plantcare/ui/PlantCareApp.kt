@@ -75,7 +75,34 @@ fun PlantCareApp(viewModel: PlantCareViewModel, aiService: com.example.plantcare
                     onNeural = { navController.navigate("neural") },
                     onDiagnosis = { navController.navigate("diagnosis") },
                     onChatGPT = { navController.navigate("chatgpt_assistant") },
-                    onAbout = { navController.navigate("about") }
+                    onAbout = { navController.navigate("about") },
+                    onToday = { navController.navigate("today") },
+                    onSettings = { navController.navigate("settings") }
+                )
+            }
+            composable(
+                route = "today",
+                enterTransition = { slideInHorizontally() },
+                exitTransition = { slideOutHorizontally() },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
+            ) {
+                TodayScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = "settings",
+                enterTransition = { slideInHorizontally() },
+                exitTransition = { slideOutHorizontally() },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it }) },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) }
+            ) {
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    darkTheme = darkTheme,
+                    onSetDarkTheme = { v ->
+                        darkTheme = v
+                        Prefs.setDarkTheme(context, v)
+                    }
                 )
             }
             composable(

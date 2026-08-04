@@ -14,8 +14,9 @@ android {
         applicationId "com.example.plantcare"
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        // Keep the package metadata aligned with the public 1.2 release.
+        versionCode 12
+        versionName "1.2.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

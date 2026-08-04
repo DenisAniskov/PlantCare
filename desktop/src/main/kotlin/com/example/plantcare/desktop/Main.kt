@@ -307,7 +307,7 @@ fun App() {
             }
         }
         statusText = ""
-        return finalOfflineText
+        return@withContext finalOfflineText
     }
 
     val plants = remember { mutableStateListOf<DesktopPlant>() }
